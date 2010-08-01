@@ -9,12 +9,14 @@
 ;;; ========
 ;;;
 ;;; Uses the spaced repetition algorithm in `org-learn' to conduct interactive
-;;; "drill sessions" where material to be remembered is presented to the
-;;; student. The student rates his or her recall of each item, and this information
-;;; is fed back to 'org-learn' to schedule later revision of the item.
+;;; "drill sessions", where the material to be remembered is presented to the
+;;; student in random order. The student rates his or her recall of each item,
+;;; and this information is fed back to `org-learn' to schedule the item for
+;;; later revision.
 ;;;
-;;; Drills can include topics in one buffer, one or several files,
-;;; all agenda files, or a subtree. A single topic can also be drilled.
+;;; Each drill session can be restricted to topics in the current buffer
+;;; (default), one or several files, all agenda files, or a subtree. A single
+;;; topic can also be drilled.
 ;;;
 ;;; Different "card types" can be defined, which present their information to
 ;;; the student in different ways.
@@ -29,19 +31,24 @@
 ;;; (require 'org-drill)
 ;;;
 ;;;
-;;; Usage
-;;; =====
+;;; Writing the questions
+;;; =====================
+;;;
+;;; See the file "spanish.org" for an example set of material.
 ;;;
 ;;; Tag all items you want to be asked about with a tag that matches
 ;;; `org-drill-question-tag'. This is :drill: by default.
 ;;;
-;;; You don't need to schedule the topics initially.  Within each question, the
-;;; answer can be included in the following ways:
+;;; You don't need to schedule the topics initially.  However org-drill *will*
+;;; recognise items that have been scheduled previously with `org-learn'.
+;;;
+;;; Within each question, the answer can be included in the following ways:
 ;;; 
 ;;; - Question in the main body text, answer in subtopics. This is the
-;;;   default. All subtopics will be shown collapsed.
+;;;   default. All subtopics will be shown collapsed, while the text under
+;;;   the main heading will stay visible.
 ;;;
-;;; - Each subtopic contains a piece of information related to the topic. One
+;;; - Each subtopic contains a piece of information related to the topic. ONE
 ;;;   of these will revealed at random, and the others hidden. To define a
 ;;;   topic of this type, give the topic a property `DRILL_CARD_TYPE' with
 ;;;   value `multisided'.
@@ -54,16 +61,24 @@
 ;;; - No explicit answer -- the user judges whether they recalled the
 ;;;   fact adequately.
 ;;;
-;;; See "questions.org" for examples.
+;;; - Other methods of your own devising, provided you write a function to
+;;;   handle selective display of the topic. See the function
+;;;   `org-drill-present-spanish-verb', which handles topics of type "spanish_verb",
+;;;   for an example.
 ;;;
-;;; Run a drill session with `M-x org-drill'. This will include all eligible
+;;;
+;;; Running the drill session
+;;; =========================
+;;;
+;;; Start a drill session with `M-x org-drill'. This will include all eligible
 ;;; topics in the current buffer. `org-drill' can also be targeted at a particular
-;;; subtree or particular files or sets of files; see the documentation of that
-;;; function for details.
+;;; subtree or particular files or sets of files; see the documentation of 
+;;; the function `org-drill' for details.
 ;;;
 ;;; During the drill session, you will be presented with each item, then asked
 ;;; to rate your recall of it by pressing a key between 0 and 5. At any time you
-;;; can press 'q' to finish the drill early (your progress will be saved).
+;;; can press 'q' to finish the drill early (your progress will be saved), or
+;;; 'e' to finish the drill and jump to the current topic for editing.
 ;;;
 ;;; 
 ;;; TODO
@@ -131,7 +146,8 @@ Nil means unlimited."
 (defcustom org-drill-card-type-alist
   '((nil . org-drill-present-simple-card)
     ("simple" . org-drill-present-simple-card)
-    ("multisided" . org-drill-present-multi-sided-card))
+    ("multisided" . org-drill-present-multi-sided-card)
+    ("spanish_verb" . org-drill-present-spanish-verb))
   "Alist associating card types with presentation functions. Each entry in the
 alist takes the form (CARDTYPE . FUNCTION), where CARDTYPE is a string
 or nil, and FUNCTION is a function which takes no arguments and returns a
@@ -196,6 +212,36 @@ How well did you do? (0-5, ?=help, q=quit)"
       nil))))
 
 
+(defun org-drill-hide-all-subheadings-except (heading-list)
+  "Returns a list containing the position of each immediate subheading of
+the current topic."
+  (let ((drill-entry-level (org-current-level))
+        (drill-sections nil)
+        (drill-heading nil))
+    (org-show-subtree)
+    (save-excursion
+      (org-map-entries
+       (lambda ()
+         (when (= (org-current-level) (1+ drill-entry-level))
+           (setq drill-heading (org-get-heading t))
+           (unless (member drill-heading heading-list)
+             (hide-subtree))
+           (push (point) drill-sections)))
+       "" 'tree))
+    (reverse drill-sections)))
+
+
+(defun org-drill-presentation-prompt (&rest fmt-and-args)
+  (let ((ch (read-char (if fmt-and-args
+                           (apply 'format
+                                  (first fmt-and-args)
+                                  (rest fmt-and-args))
+                         "Press any key to see the answer, 'e' to edit, 'q' to quit."))))
+    (case ch
+      (?q nil)
+      (?e 'edit)
+      (otherwise t))))
+
 
 ;;; Presentation functions ====================================================
 
@@ -207,36 +253,68 @@ How well did you do? (0-5, ?=help, q=quit)"
 ;; recall, nil if they chose to quit.
 
 (defun org-drill-present-simple-card ()
-  (save-excursion
-    (let ((drill-entry-level (org-current-level)))
-      (org-map-entries
-       (lambda ()
-         (if (> (org-current-level) drill-entry-level)
-             (hide-subtree)))
-       "" 'tree)))
-  (setq ch (read-char "Press a key to see the answer..."))
-  (org-show-subtree)
-  (not (eq ch ?q)))
-
+  (org-drill-hide-all-subheadings-except nil)
+  (prog1 (org-drill-presentation-prompt)
+    (org-show-subtree)))
 
 
 (defun org-drill-present-multi-sided-card ()
-  (let ((drill-entry-level (org-current-level))
-        (drill-sections nil))
-    (save-excursion
-      (org-map-entries
-       (lambda ()
-         (when (> (org-current-level) drill-entry-level)
-           (hide-subtree)
-           (push (point) drill-sections)))
-       "" 'tree))
+  (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
     (when drill-sections
       (save-excursion
         (goto-char (nth (random (length drill-sections)) drill-sections))
         (org-show-subtree)))
-    (setq ch (read-char "Press a key to see the answer..."))
-    (org-show-subtree)
-    (not (eq ch ?q))))
+    (prog1
+        (org-drill-presentation-prompt)
+      (org-show-subtree))))
+
+
+
+(defun org-drill-present-spanish-verb ()
+  (case (random 6)
+    (0
+     (org-drill-hide-all-subheadings-except '("Infinitive"))
+     (prog1
+         (org-drill-presentation-prompt
+          "Translate this Spanish verb, and conjugate it for the *present* tense.")
+       (org-drill-hide-all-subheadings-except '("English" "Present Tense"
+                                                "Notes"))))
+    (1
+     (org-drill-hide-all-subheadings-except '("English"))
+     (prog1
+         (org-drill-presentation-prompt
+          "For the *present* tense, conjugate the Spanish translation of this English verb.")
+       (org-drill-hide-all-subheadings-except '("Infinitive" "Present Tense"
+                                                "Notes"))))
+    (2
+     (org-drill-hide-all-subheadings-except '("Infinitive"))
+     (prog1
+         (org-drill-presentation-prompt
+          "Translate this Spanish verb, and conjugate it for the *past* tense.")
+       (org-drill-hide-all-subheadings-except '("English" "Past Tense"
+                                                "Notes"))))
+    (3
+     (org-drill-hide-all-subheadings-except '("English"))
+     (prog1
+         (org-drill-presentation-prompt
+          "For the *past* tense, conjugate the Spanish translation of this English verb.")
+       (org-drill-hide-all-subheadings-except '("Infinitive" "Past Tense"
+                                                "Notes"))))
+    (4
+     (org-drill-hide-all-subheadings-except '("Infinitive"))
+     (prog1
+         (org-drill-presentation-prompt
+          "Translate this Spanish verb, and conjugate it for the *future perfect* tense.")
+       (org-drill-hide-all-subheadings-except '("English" "Future Perfect Tense"
+                                                "Notes"))))
+    (5
+     (org-drill-hide-all-subheadings-except '("English"))
+     (prog1
+         (org-drill-presentation-prompt
+          "For the *future perfect* tense, conjugate the Spanish translation of this English verb.")
+       (org-drill-hide-all-subheadings-except '("Infinitive" "Future Perfect Tense"
+                                                "Notes"))))))
+    
 
 
 
@@ -270,6 +348,8 @@ See `org-drill' for more details."
        ((not cont)
         (message "Quit")
         nil)
+       ((eql cont 'edit)
+        'edit)
        (t
         (save-excursion
           (org-drill-reschedule)))))))
@@ -319,7 +399,8 @@ agenda-with-archives
   (interactive)
   (let ((entries nil)
         (result nil)
-        (results nil))
+        (results nil)
+        (end-pos nil))
     (block org-drill
       (save-excursion
         (org-map-entries
@@ -345,13 +426,20 @@ agenda-with-archives
                  ((null result)
                   (message "Quit")
                   (return-from org-drill nil))
+                 ((eql result 'edit)
+                  (setq end-pos (point-marker))
+                  (return-from org-drill nil))
                  ((and org-drill-maximum-duration
                        (> (- (float-time (current-time)) start-time)
                           (* org-drill-maximum-duration 60)))
                   (message "This drill session has reached its maximum duration.")
                   (return-from org-drill nil)))))
             (message "Drill session finished!")
-            )))))))
+            )))))
+    (when end-pos
+      (switch-to-buffer (marker-buffer end-pos))
+      (goto-char (marker-position end-pos))
+      (message "Edit topic."))))
 
 
 

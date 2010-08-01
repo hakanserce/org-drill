@@ -1,0 +1,128 @@
+# -*- mode: org; coding: utf-8 -*-
+#+STARTUP: showall
+
+# examples of card definitions for use with org-drill.
+
+* Spanish questions
+
+** Greetings
+
+# Simple cards. When each card is presented, any subheadings are collapsed, but
+# the text under the topic's main heading remains visible.
+
+*** Greeting 1                                       :drill:
+
+Translate into Spanish:
+What is your name? (formal)
+
+**** Answer
+
+¿Cómo se llama usted?
+
+*** Greeting 2                                       :drill:
+
+Translate into Spanish:
+What is your name? (informal)
+
+**** Answer
+
+¿Cómo te llamas?
+
+** Nouns
+
+# Examples of 'multisided' cards. The user will randomly be presented with ONE
+# of the subheadings -- in this case either the Spanish word, or the English
+# word.
+
+# (we could include a third subheading which just contains an inline picture.)
+
+*** Noun                                             :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: multisided
+    :END:
+
+Translate this word.
+
+**** Spanish
+
+el gato
+
+**** English
+
+the cat
+
+
+*** Noun                                             :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: multisided
+    :END:
+
+Translate this word.
+
+**** Spanish
+
+el perro
+
+**** English
+
+the dog
+
+
+** Grammar rules
+
+# More simple cards -- here the question and answer are produced purely using
+# cloze deletion of test in [square brackets], without the need to hide any
+# subtopics.
+
+*** Grammar Rule                                     :drill:
+
+To make the plural of an adjective ending in [a stressed vowel or a consonant 
+other than -z], add /-es/.
+
+*** Grammar Rule                                     :drill:
+
+To form an adverb from an adjective, add [-mente] to the [feminine] (gender)
+form of the adjective.
+
+** Verbs
+
+# An example of a special card type. The information in "spanish_verb" topics
+# can be presented in any of several different ways -- see the function
+# `org-drill-present-spanish-verb'.
+
+*** Verb                                             :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: spanish_verb
+    :END:
+
+**** Infinitive
+
+cantar
+
+**** English
+
+to sing
+
+**** Present Tense
+
+| yo canto  | nosotros cantamos |
+| tú cantas | vosotros cantáis  |
+| él canta  | ellos cantan      |
+
+**** Past Tense
+
+| yo canté    | nosotros cantamos   |
+| tú cantaste | vosotros cantasteis |
+| él cantó    | ellos cantaron      |
+
+**** Future Perfect Tense
+
+| yo cantaré  | nosotros cantaremos |
+| tú cantarás | vosotros cantaréis  |
+| él cantarán | ellos cantarán      |
+
+
+**** Notes
+
+Regular verb.
+
