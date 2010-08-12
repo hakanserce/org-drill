@@ -27,7 +27,7 @@
 ;;;
 ;;; Put the following in your .emacs:
 ;;;
-;;; (add-to-list 'load-path "/path/to/org/contrib/lisp/")
+;;; (add-to-list 'load-path "/path/to/org-drill/")
 ;;; (require 'org-drill)
 ;;;
 ;;;
