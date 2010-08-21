@@ -2,12 +2,14 @@
 #+STARTUP: showall
 
 # examples of card definitions for use with org-drill.
+# Cards, AKA topics, have the 'drill' tag. Note that the higher-level headings
+# in the file do NOT have this tag.
 
 * Spanish questions
 
 ** Greetings
 
-# Simple cards. When each card is presented, any subheadings are collapsed, but
+# Simple cards. When each card is presented, all subheadings are collapsed, but
 # the text under the topic's main heading remains visible.
 
 *** Greeting 1                                       :drill:
@@ -19,6 +21,10 @@ What is your name? (formal)
 
 ¿Cómo se llama usted?
 
+**** Notes
+
+llamar = to be named
+
 *** Greeting 2                                       :drill:
 
 Translate into Spanish:
@@ -28,17 +34,46 @@ What is your name? (informal)
 
 ¿Cómo te llamas?
 
-** Nouns
+**** Notes
 
-# Examples of 'multisided' cards. The user will randomly be presented with ONE
-# of the subheadings -- in this case either the Spanish word, or the English
-# word.
+llamar = to be named
 
-# (we could include a third subheading which just contains an inline picture.)
+
+** Grammar rules
+
+# More simple cards -- here the question and answer are produced purely using
+# cloze deletion of test in [square brackets], without the need to hide any
+# subtopics (though they WILL still be hidden if present).
+
+# Set the variable `org-drill-use-visible-cloze-face-p' to `t' if you want 
+# cloze-deleted text to be shown in a special face when you are editing org
+# mode buffers.
+
+*** Grammar Rule                                     :drill:
+
+To make the plural of an adjective ending in [a stressed vowel or a consonant 
+other than -z], add /-es/.
+
+*** Grammar Rule                                     :drill:
+
+To form an adverb from an adjective, add [-mente] to the [feminine] (gender)
+form of the adjective.
+
+** Vocabulary
+
+# Examples of 'twosided' cards. These are 'flip cards' where one of the
+# first 2 'sides' (subheadings) is presented at random, while all others stay
+# hidden. 
+
+# There is another builtin card type called 'multisided'. These are like
+# 'twosided' cards, but can have any number of sides. So we could extend the
+# examples below by changing their type to multisided and adding a third
+# subheading which contains an inline image.
+
 
 *** Noun                                             :drill:
     :PROPERTIES:
-    :DRILL_CARD_TYPE: multisided
+    :DRILL_CARD_TYPE: twosided
     :END:
 
 Translate this word.
@@ -51,10 +86,15 @@ el gato
 
 the cat
 
+**** Example sentence
+
+*El gato* se sentó en la estera.
+*The cat* sat on the mat.
+
 
 *** Noun                                             :drill:
     :PROPERTIES:
-    :DRILL_CARD_TYPE: multisided
+    :DRILL_CARD_TYPE: twosided
     :END:
 
 Translate this word.
@@ -67,22 +107,32 @@ el perro
 
 the dog
 
+**** Example sentence
 
-** Grammar rules
+Cuidado con *el perro*. 
+Beware of *the dog*.
 
-# More simple cards -- here the question and answer are produced purely using
-# cloze deletion of test in [square brackets], without the need to hide any
-# subtopics.
 
-*** Grammar Rule                                     :drill:
+*** Adjective                                        :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: twosided
+    :END:
 
-To make the plural of an adjective ending in [a stressed vowel or a consonant 
-other than -z], add /-es/.
+Translate this word.
 
-*** Grammar Rule                                     :drill:
+**** Spanish
 
-To form an adverb from an adjective, add [-mente] to the [feminine] (gender)
-form of the adjective.
+caliente
+
+**** English 
+
+hot
+
+**** Example sentence
+
+El agua está muy caliente.
+The water is very hot.
+
 
 ** Verbs
 

@@ -21,77 +21,8 @@
 ;;; Different "card types" can be defined, which present their information to
 ;;; the student in different ways.
 ;;;
-;;;
-;;; Installation
-;;; ============
-;;;
-;;; Put the following in your .emacs:
-;;;
-;;; (add-to-list 'load-path "/path/to/org-drill/")
-;;; (require 'org-drill)
-;;;
-;;;
-;;; Writing the questions
-;;; =====================
-;;;
-;;; See the file "spanish.org" for an example set of material.
-;;;
-;;; Tag all items you want to be asked about with a tag that matches
-;;; `org-drill-question-tag'. This is :drill: by default.
-;;;
-;;; You don't need to schedule the topics initially.  However org-drill *will*
-;;; recognise items that have been scheduled previously with `org-learn'.
-;;;
-;;; Within each question, the answer can be included in the following ways:
-;;; 
-;;; - Question in the main body text, answer in subtopics. This is the
-;;;   default. All subtopics will be shown collapsed, while the text under
-;;;   the main heading will stay visible.
-;;;
-;;; - Each subtopic contains a piece of information related to the topic. ONE
-;;;   of these will revealed at random, and the others hidden. To define a
-;;;   topic of this type, give the topic a property `DRILL_CARD_TYPE' with
-;;;   value `multisided'.
-;;;
-;;; - Cloze deletion -- any pieces of text in the body of the card that are
-;;;   surrounded with [SINGLE square brackets] will be hidden when the card is
-;;;   presented to the user, and revealed once they press a key. Cloze deletion
-;;;   is automatically applied to all topics.
-;;; 
-;;; - No explicit answer -- the user judges whether they recalled the
-;;;   fact adequately.
-;;;
-;;; - Other methods of your own devising, provided you write a function to
-;;;   handle selective display of the topic. See the function
-;;;   `org-drill-present-spanish-verb', which handles topics of type "spanish_verb",
-;;;   for an example.
-;;;
-;;;
-;;; Running the drill session
-;;; =========================
-;;;
-;;; Start a drill session with `M-x org-drill'. This will include all eligible
-;;; topics in the current buffer. `org-drill' can also be targeted at a particular
-;;; subtree or particular files or sets of files; see the documentation of 
-;;; the function `org-drill' for details.
-;;;
-;;; During the drill session, you will be presented with each item, then asked
-;;; to rate your recall of it by pressing a key between 0 and 5. At any time you
-;;; can press 'q' to finish the drill early (your progress will be saved), or
-;;; 'e' to finish the drill and jump to the current topic for editing.
-;;;
-;;; 
-;;; TODO
-;;; ====
-;;;
-;;; - encourage org-learn to reschedule "4" and "5" items.
-;;; - nicer "cloze face" which does not hide the space preceding the cloze,
-;;;   and behaves more nicely across line breaks
-;;; - hide drawers.
-;;; - org-drill-question-tag should use a tag match string, rather than a
-;;;   single tag
-;;; - when finished, display a message showing how many items reviewed,
-;;;   how many still pending, numbers in each recall category
+;;; See the file README.org for more detailed documentation.
+
 
 (eval-when-compile (require 'cl))
 (eval-when-compile (require 'hi-lock))
@@ -132,6 +63,41 @@ Nil means unlimited."
   :type '(choice integer (const nil)))
 
 
+(defcustom org-drill-leech-failure-threshold
+  15
+  "If an item is forgotten more than this many times, it is tagged
+as a 'leech' item."
+  :group 'org-drill
+  :type '(choice integer (const nil)))
+
+
+(defcustom org-drill-leech-method
+  'skip
+  "How should 'leech items' be handled during drill sessions?
+Possible values:
+- nil :: Leech items are treated the same as normal items.
+- skip :: Leech items are not included in drill sessions.
+- warn :: Leech items are still included in drill sessions,
+  but a warning message is printed when each leech item is
+  presented."
+  :group 'org-drill
+  :type '(choice (const 'warn) (const 'skip) (const nil)))
+
+
+(defface org-drill-visible-cloze-face
+  '((t (:foreground "dark slate blue")))
+  "The face used to hide the contents of cloze phrases."
+  :group 'org-drill)
+
+
+(defcustom org-drill-use-visible-cloze-face-p
+  nil
+  "Use a special face to highlight cloze-deleted text in org mode
+buffers?"
+  :group 'org-drill
+  :type 'boolean)
+
+
 
 (defface org-drill-hidden-cloze-face
   '((t (:foreground "blue" :background "blue")))
@@ -140,12 +106,14 @@ Nil means unlimited."
 
 
 (defvar org-drill-cloze-regexp
-  "[^][]\\(\\[[^][][^]]*\\]\\)")
+  ;; old "[^][]\\(\\[[^][][^]]*\\]\\)"
+  "\\(\\[.*?\\]\\|^[^[[:cntrl:]]*?\\]\\|\\[.*?$\\)")
 
 
 (defcustom org-drill-card-type-alist
   '((nil . org-drill-present-simple-card)
     ("simple" . org-drill-present-simple-card)
+    ("twosided" . org-drill-present-two-sided-card)
     ("multisided" . org-drill-present-multi-sided-card)
     ("spanish_verb" . org-drill-present-spanish-verb))
   "Alist associating card types with presentation functions. Each entry in the
@@ -155,6 +123,11 @@ boolean value."
   :group 'org-drill
   :type '(alist :key-type (choice string (const nil)) :value-type function))
 
+
+(defvar *org-drill-done-entry-count* 0)
+(defvar *org-drill-pending-entry-count* 0)
+(defvar *org-drill-session-qualities* nil)
+(defvar *org-drill-start-time* 0)
 
 
 (defun shuffle-list (list)
@@ -174,19 +147,46 @@ boolean value."
     
 
 
+(defun org-drill-entry-p ()
+  "Is the current entry a 'drill item'?"
+  (or (assoc "LEARN_DATA" (org-entry-properties nil))
+      (member org-drill-question-tag (org-get-local-tags))))
+
+
+(defun org-drill-entry-leech-p ()
+  "Is the current entry a 'leech item'?"
+  (and (org-drill-entry-p)
+       (member "leech" (org-get-local-tags))))
+
+
 (defun org-drill-entry-due-p ()
   (let ((item-time (org-get-scheduled-time (point))))
-    (and (or (assoc "LEARN_DATA" (org-entry-properties nil))
-             (member org-drill-question-tag (org-get-local-tags)))
+    (and (org-drill-entry-p)
+         (or (not (eql 'skip org-drill-leech-method))
+             (not (org-drill-entry-leech-p)))
          (or (null item-time)
-             (not (minusp               ; scheduled for today/in
-                                        ; future
+             (not (minusp               ; scheduled for today/in future
                    (- (time-to-days (current-time))
                       (time-to-days item-time))))))))
 
 
+(defun org-drill-entry-new-p ()
+  (let ((item-time (org-get-scheduled-time (point))))
+    (and (org-drill-entry-p)
+         (null item-time))))
+
+
+
+(defun org-drill-entry-last-quality ()
+  (let ((quality (cdr (assoc "DRILL_LAST_QUALITY" (org-entry-properties nil)))))
+    (if quality
+        (string-to-number quality)
+      nil)))
+
+
 
 (defun org-drill-reschedule ()
+  "Returns quality rating (0-5), or nil if the user quit."
   (let ((ch nil))
     (while (not (memq ch '(?q ?0 ?1 ?2 ?3 ?4 ?5)))
       (setq ch (read-char
@@ -205,9 +205,21 @@ How well did you do? (0-5, ?=help, q=quit)"
                   "How well did you do? (0-5, ?=help, q=quit)"))))
     (cond
      ((and (>= ch ?0) (<= ch ?5))
-      (save-excursion
-        (org-smart-reschedule (- ch 48)))
-      ch)
+      (let ((quality (- ch ?0))
+            (failures (cdr (assoc "DRILL_FAILURE_COUNT" (org-entry-properties nil)))))
+        (save-excursion
+          (org-smart-reschedule quality))
+        (push quality *org-drill-session-qualities*)
+        (cond
+         ((< quality 3)
+          (when org-drill-leech-failure-threshold
+            (setq failures (if failures (string-to-number failures) 0))
+            (org-set-property "DRILL_FAILURE_COUNT"
+                              (format "%d" (1+ failures)))
+            (if (> (1+ failures) org-drill-leech-failure-threshold)
+                (org-toggle-tag "leech" 'on)))))
+        (org-set-property "DRILL_LAST_QUALITY" (format "%d" quality))
+        quality))
      (t
       nil))))
 
@@ -231,12 +243,23 @@ the current topic."
     (reverse drill-sections)))
 
 
+
 (defun org-drill-presentation-prompt (&rest fmt-and-args)
-  (let ((ch (read-char (if fmt-and-args
-                           (apply 'format
-                                  (first fmt-and-args)
-                                  (rest fmt-and-args))
-                         "Press any key to see the answer, 'e' to edit, 'q' to quit."))))
+  (let ((ch nil)
+        (prompt
+         (if fmt-and-args
+             (apply 'format
+                    (first fmt-and-args)
+                    (rest fmt-and-args))
+           "Press any key to see the answer, 'e' to edit, 'q' to quit.")))
+    (setq prompt
+          (format "(%d) %s" *org-drill-pending-entry-count* prompt))
+    (if (and (eql 'warn org-drill-leech-method)
+             (org-drill-entry-leech-p))
+        (setq prompt (concat "!!! LEECH ITEM !!!
+You seem to be having a lot of trouble memorising this item.
+Consider reformulating the item to make it easier to remember.\n" prompt)))
+    (setq ch (read-char prompt))
     (case ch
       (?q nil)
       (?e 'edit)
@@ -256,6 +279,18 @@ the current topic."
   (org-drill-hide-all-subheadings-except nil)
   (prog1 (org-drill-presentation-prompt)
     (org-show-subtree)))
+
+
+(defun org-drill-present-two-sided-card ()
+  (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
+    (when drill-sections
+      (save-excursion
+        (goto-char (nth (random (min 2 (length drill-sections))) drill-sections))
+        (org-show-subtree)))
+    (prog1
+        (org-drill-presentation-prompt)
+      (org-show-subtree))))
+
 
 
 (defun org-drill-present-multi-sided-card ()
@@ -323,6 +358,9 @@ the current topic."
 Review will occur regardless of whether the topic is due for review or whether
 it meets the definition of a 'review topic' used by `org-drill'.
 
+Returns a quality rating from 0 to 5, or nil if the user quit, or the symbol
+EDIT if the user chose to exit the drill and edit the current item.
+
 See `org-drill' for more details."
   (interactive)
   (unless (org-at-heading-p)
@@ -332,7 +370,7 @@ See `org-drill' for more details."
     (save-restriction
       (org-narrow-to-subtree) 
       (org-show-subtree)
-      (org-cycle-hide-drawers 'overview)
+      (org-cycle-hide-drawers 'all)
       
       (let ((presentation-fn (cdr (assoc card-type org-drill-card-type-alist))))
         (cond
@@ -353,6 +391,81 @@ See `org-drill' for more details."
        (t
         (save-excursion
           (org-drill-reschedule)))))))
+
+
+
+(defun org-drill-entries (entries)
+  "Returns nil, t, or a list of markers representing entries that were
+'failed' and need to be presented again before the session ends."
+  (let ((again-entries nil)
+        (*org-drill-done-entry-count* 0)
+        (*org-drill-pending-entry-count* (length entries)))
+    (if (and org-drill-maximum-items-per-session
+             (> (length entries)
+                org-drill-maximum-items-per-session))
+        (setq entries (subseq entries 0
+                              org-drill-maximum-items-per-session)))
+    (block org-drill-entries
+      (dolist (m entries)
+        (save-restriction
+          (switch-to-buffer (marker-buffer m))
+          (goto-char (marker-position m))
+          (setq result (org-drill-entry))
+          (cond
+           ((null result)
+            (message "Quit")
+            (return-from org-drill-entries nil))
+           ((eql result 'edit)
+            (setq end-pos (point-marker))
+            (return-from org-drill-entries nil))
+           (t
+            (cond
+             ((< result 3)
+              (push m again-entries))
+             (t
+              (decf *org-drill-pending-entry-count*)
+              (incf *org-drill-done-entry-count*)))
+            (when (and org-drill-maximum-duration
+                       (> (- (float-time (current-time)) *org-drill-start-time*)
+                          (* org-drill-maximum-duration 60)))
+              (message "This drill session has reached its maximum duration.")
+              (return-from org-drill-entries nil))))))
+      (or again-entries
+          t))))
+
+
+(defun org-drill-final-report ()
+  (read-char
+(format
+ "%d items reviewed, %d items awaiting review
+Session duration %s
+
+Recall of reviewed items:
+ Excellent (5):     %3d%%
+ Good (4):          %3d%%
+ Hard (3):          %3d%%
+ Near miss (2):     %3d%%
+ Failure (1):       %3d%%
+ Total failure (0): %3d%%
+
+Session finished. Press a key to continue..." 
+ *org-drill-done-entry-count*
+ *org-drill-pending-entry-count*
+ (format-seconds "%h:%.2m:%.2s"
+                 (- (float-time (current-time)) *org-drill-start-time*))
+ (round (* 100 (count 5 *org-drill-session-qualities*))
+        (length *org-drill-session-qualities*))
+ (round (* 100 (count 4 *org-drill-session-qualities*))
+        (length *org-drill-session-qualities*))
+ (round (* 100 (count 3 *org-drill-session-qualities*))
+        (length *org-drill-session-qualities*))
+ (round (* 100 (count 2 *org-drill-session-qualities*))
+        (length *org-drill-session-qualities*))
+ (round (* 100 (count 1 *org-drill-session-qualities*))
+        (length *org-drill-session-qualities*))
+ (round (* 100 (count 0 *org-drill-session-qualities*))
+        (length *org-drill-session-qualities*))
+ )))
 
 
 
@@ -398,49 +511,64 @@ agenda-with-archives
 
   (interactive)
   (let ((entries nil)
+        (failed-entries nil)
+        (new-entries nil)
+        (old-entries nil)
         (result nil)
         (results nil)
         (end-pos nil))
     (block org-drill
+      (setq *org-drill-session-qualities* nil)
+      (setq *org-drill-start-time* (float-time (current-time)))
       (save-excursion
         (org-map-entries
-         (lambda () (if (org-drill-entry-due-p)
-                   (push (point-marker) entries)))
+         (lambda () (when (org-drill-entry-due-p)
+                 (cond
+                  ((org-drill-entry-new-p)
+                   (push (point-marker) new-entries))
+                  ((member (org-drill-entry-last-quality) '(0 1 2))
+                   (push (point-marker) failed-entries))
+                  (t
+                   (push (point-marker) old-entries)))))
          "" scope)
+        ;; Failed first, then random mix of old + new
+        (setq entries (append (shuffle-list failed-entries)
+                              (shuffle-list (append old-entries
+                                                    new-entries))))
         (cond
          ((null entries)
           (message "I did not find any pending drill items."))
          (t
-          (let ((start-time (float-time (current-time))))
-            (dolist (m (if (and org-drill-maximum-items-per-session
-                                (> (length entries)
-                                   org-drill-maximum-items-per-session))
-                           (subseq (shuffle-list entries) 0
-                                   org-drill-maximum-items-per-session)
-                         (shuffle-list entries)))
-              (save-restriction
-                (switch-to-buffer (marker-buffer m))
-                (goto-char (marker-position m))
-                (setq result (org-drill-entry))
-                (cond
-                 ((null result)
-                  (message "Quit")
-                  (return-from org-drill nil))
-                 ((eql result 'edit)
-                  (setq end-pos (point-marker))
-                  (return-from org-drill nil))
-                 ((and org-drill-maximum-duration
-                       (> (- (float-time (current-time)) start-time)
-                          (* org-drill-maximum-duration 60)))
-                  (message "This drill session has reached its maximum duration.")
-                  (return-from org-drill nil)))))
+          (let ((again t))
+            (while again
+              (when (listp again)
+                (setq entries (shuffle-list again)))
+              (setq again (org-drill-entries entries))
+              (cond
+               ((null again)
+                (return-from org-drill nil))
+               ((eql t again)
+                (setq again nil))))
             (message "Drill session finished!")
             )))))
-    (when end-pos
+    (cond
+     (end-pos
       (switch-to-buffer (marker-buffer end-pos))
       (goto-char (marker-position end-pos))
-      (message "Edit topic."))))
+      (message "Edit topic."))
+     (t
+      (org-drill-final-report)))))
 
+
+
+(add-hook 'org-mode-hook
+          (lambda ()
+            (if org-drill-use-visible-cloze-face-p
+                (font-lock-add-keywords
+                 'org-mode
+                 `((,org-drill-cloze-regexp
+                    (0 'org-drill-visible-cloze-face nil)))
+                 t)))) 
 
 
 (provide 'org-drill)

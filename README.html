@@ -1,0 +1,764 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+               "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+lang="en" xml:lang="en">
+<head>
+<title>Org-Drill</title>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+<meta name="generator" content="Org-mode"/>
+<meta name="generated" content="2010-08-22 09:45:05 NZST"/>
+<meta name="author" content="Paul Sexton"/>
+<meta name="description" content=""/>
+<meta name="keywords" content=""/>
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  html { font-family: Times, serif; font-size: 12pt; }
+  .title  { text-align: center; }
+  .todo   { color: red; }
+  .done   { color: green; }
+  .tag    { background-color: #add8e6; font-weight:normal }
+  .target { }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  p.verse { margin-left: 3% }
+  pre {
+	border: 1pt solid #AEBDCC;
+	background-color: #F3F5F7;
+	padding: 5pt;
+	font-family: courier, monospace;
+        font-size: 90%;
+        overflow:auto;
+  }
+  table { border-collapse: collapse; }
+  td, th { vertical-align: top; }
+  dt { font-weight: bold; }
+  div.figure { padding: 0.5em; }
+  div.figure p { text-align: center; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size:smaller }
+  .code-highlighted {background-color:#ffff00;}
+  .org-info-js_info-navigation { border-style:none; }
+  #org-info-js_console-label { font-size:10px; font-weight:bold;
+                               white-space:nowrap; }
+  .org-info-js_search-highlight {background-color:#ffff00; color:#000000;
+                                 font-weight:bold; }
+  /*]]>*/-->
+</style>
+<script type="text/javascript">
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+
+<h1 class="title">Org-Drill</h1>
+
+
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#sec-1">1 Synopsis </a></li>
+<li><a href="#sec-2">2 Installation </a></li>
+<li><a href="#sec-3">3 Demonstration </a></li>
+<li><a href="#sec-4">4 Writing the questions </a>
+<ul>
+<li><a href="#sec-4_1">4.1 Simple topics </a></li>
+<li><a href="#sec-4_2">4.2 Cloze deletion </a></li>
+<li><a href="#sec-4_3">4.3 Two-sided cards </a></li>
+<li><a href="#sec-4_4">4.4 Multi-sided cards </a></li>
+<li><a href="#sec-4_5">4.5 User-defined topic types </a></li>
+</ul>
+</li>
+<li><a href="#sec-5">5 Running the drill session </a></li>
+<li><a href="#sec-6">6 Leeches </a></li>
+<li><a href="#sec-7">7 Incremental reading </a></li>
+<li><a href="#sec-8">8 Still to do </a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-1" class="outline-2">
+<h2 id="sec-1"><span class="section-number-2">1</span> Synopsis </h2>
+<div class="outline-text-2" id="text-1">
+
+
+
+<p>
+Org-Drill uses the spaced repetition algorithm in <code>org-learn</code> to conduct
+interactive "drill sessions", using org files as sources of facts to be
+memorised. The material to be remembered is presented to the student in random
+order. The student rates his or her recall of each item, and this information
+is fed back to <code>org-learn</code> to schedule the item for later revision.
+</p>
+<p>
+Each drill session can be restricted to topics in the current buffer
+(default), one or several files, all agenda files, or a subtree. A single
+topic can also be drilled.
+</p>
+<p>
+Different "topic types" can be defined, which present their information to the
+student in different ways.
+</p>
+<p>
+For more on the spaced repetition algorithm, and examples of other programs
+that use it, see:
+</p><ul>
+<li>
+<a href="http://supermemo.com/index.htm">SuperMemo</a> (the SM5 algorithm is discussed <a href="http://www.supermemo.com/english/ol/sm5.htm">here</a>)
+</li>
+<li>
+<a href="http://ichi2.net/anki/">Anki</a>
+</li>
+<li>
+<a href="http://mnemosyne-proj.org/index.php">Mnemosyne</a>
+
+
+</li>
+</ul>
+</div>
+
+</div>
+
+<div id="outline-container-2" class="outline-2">
+<h2 id="sec-2"><span class="section-number-2">2</span> Installation </h2>
+<div class="outline-text-2" id="text-2">
+
+
+
+<p>
+Put the following in your <code>.emacs</code>. You will also need to make sure that Org's
+"contrib/lisp" directory is in the emacs load-path.
+</p>
+
+
+
+<pre class="src src-emacs-lisp"><span style="color: #696969;">(</span><span style="color: #8b4789;">require</span> '<span style="color: #698b22; font-weight: bold;">org-drill</span><span style="color: #696969;">)</span>
+</pre>
+
+
+
+<p>
+I also recommend the following, so that items are always eventually retested,
+even when you remember them very well.
+</p>
+
+
+
+<pre class="src src-emacs-lisp"><span style="color: #696969;">(</span>setq org-learn-always-reschedule t<span style="color: #696969;">)</span>
+</pre>
+
+
+
+<p>
+If you want cloze-deleted text to show up in a special font within Org mode
+buffers, also add:
+</p>
+
+
+
+<pre class="src src-emacs-lisp"><span style="color: #696969;">(</span>setq org-drill-use-visible-cloze-face-p t<span style="color: #696969;">)</span>
+</pre>
+
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-3" class="outline-2">
+<h2 id="sec-3"><span class="section-number-2">3</span> Demonstration </h2>
+<div class="outline-text-2" id="text-3">
+
+
+
+<p>
+Load the file <a href="spanish.html">spanish.org</a>. Press <code>M-x</code> and run the function <code>org-drill</code>. Follow
+the prompts at the bottom of the screen.
+</p>
+<p>
+When the drill finishes, you can look at <code>spanish.org</code> to get some idea of how
+drill topics are written.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-4" class="outline-2">
+<h2 id="sec-4"><span class="section-number-2">4</span> Writing the questions </h2>
+<div class="outline-text-2" id="text-4">
+
+
+
+<p>
+Org-Drill uses org mode topics as 'drill items'. To be used as a drill item,
+the topic must have a tag that matches <code>org-drill-question-tag</code>. This is
+<code>:drill:</code> by default. Any other org topics will be ignored.
+</p>
+<p>
+You don't need to schedule the topics initially.  However <code>org-drill</code> <b>will</b>
+recognise items that have been scheduled previously with
+<code>org-learn</code>. Unscheduled items are considered to be 'new' and ready for
+memorisation.
+</p>
+<p>
+How should 'drill topics' be structured? Any org topic is a legal drill topic
+&ndash; it will simply be shown with subheadings collapsed. After pressing a
+key, any hidden subheadings will be revealed, and you will be asked to rate
+your "recall" of the item.
+</p>
+<p>
+This will be adequate for some items, but usually you will want to write items
+where you have more control over what information is hidden from the user for
+recall purposes.
+</p>
+
+</div>
+
+<div id="outline-container-4_1" class="outline-3">
+<h3 id="sec-4_1"><span class="section-number-3">4.1</span> Simple topics </h3>
+<div class="outline-text-3" id="text-4_1">
+
+
+<p>
+The simplest drill topic has no special structure. When such a topic is
+presented during a drill session, any subheadings are "collapsed" with their
+contents hidden. So, you could include the question as text beneath the main
+heading, and the answer within a subheading. For example:
+</p>
+
+
+
+<pre class="example">* Item                                   :drill:
+What is the capital city of Estonia?
+
+** The Answer
+Tallinn.
+</pre>
+
+
+
+<p>
+When this item is presented for review, the text beneath the main heading will
+be visible, but the contents of the subheading ("The Answer") will be hidden.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-4_2" class="outline-3">
+<h3 id="sec-4_2"><span class="section-number-3">4.2</span> Cloze deletion </h3>
+<div class="outline-text-3" id="text-4_2">
+
+
+<p>
+Cloze deletion can be used in any drill topic regardless of whether it is
+otherwise 'simple', or one of the specialised topic types discussed below. To
+use cloze deletion, part of the body of the topic is marked as <i>cloze text</i> by
+surrounding it with single square brackets, [like so]. When the topic is
+presented for review, the text within square brackets will be obscured. The
+text is then revealed after the user presses a key. For example:
+</p>
+
+
+
+<pre class="example">* Item                                   :drill:
+The capital city of Estonia is [Tallinn].
+</pre>
+
+
+
+<p>
+During review, the user will see:
+</p>
+<blockquote>
+
+<p>The capital city of Estonia is <font style="background-color: blue;" color="blue">
+XXXXXXX</font>.
+</p>
+</blockquote>
+
+
+<p>
+When the user presses a key, the text "Tallinn" will become visible.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-4_3" class="outline-3">
+<h3 id="sec-4_3"><span class="section-number-3">4.3</span> Two-sided cards </h3>
+<div class="outline-text-3" id="text-4_3">
+
+
+<p>
+The remaining topic types all use the topic property, <code>DRILL_CARD_TYPE</code>. This
+property tells <code>org-drill</code> which function to use to present the topic during
+review. If this property has the value <code>twosided</code> then the topic is treated as
+a "two sided card". When a two sided card is reviewed, <i>one of the first two</i>
+subheadings within the topic will be visible &ndash; all other
+subheadings will be hidden.
+</p>
+<p>
+Two-sided cards are meant to emulate the type of flipcard where either side is
+useful as test material (for example, a card with a word in a foreign language
+on one side, and its translation on the other).
+</p>
+<p>
+A two sided card can have more than 2 subheadings, but all subheadings after
+the first two are considered as "notes" and will always be hidden during topic
+review.
+</p>
+
+
+
+<pre class="example">* Noun                                               :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: twosided
+    :END:
+
+Translate this word.
+
+** Spanish
+la mujer
+
+** English
+the woman
+
+** Example sentence
+¿Quién fue esa mujer? 
+Who was that woman?
+</pre>
+
+
+
+<p>
+In this example, the user will be shown the main text &ndash; "Translate this word"
+&ndash; and either 'la mujer', <i>or</i> 'the woman', at random. The section 'Example
+sentence' will never be shown until after the user presses a key, because it is
+not one of the first two 'sides' of the topic.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-4_4" class="outline-3">
+<h3 id="sec-4_4"><span class="section-number-3">4.4</span> Multi-sided cards </h3>
+<div class="outline-text-3" id="text-4_4">
+
+
+<p>
+The <code>multisided</code> card type is similar to <code>twosided</code>, except that any
+subheading has a chance of being presented during the topic review. One
+subheading is always shown and all others are always hidden. 
+</p>
+
+
+
+<pre class="example">* Noun                                               :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: multisided
+    :END:
+
+Translate.
+
+** Spanish
+la mesa
+
+** English
+the table
+
+** Picture
+[[file:table.jpg][PICTURE]]
+</pre>
+
+
+
+<p>
+The user will be shown the main text and either 'la mujer', <i>or</i> 'the woman',
+<i>or</i> a picture of a table.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-4_5" class="outline-3">
+<h3 id="sec-4_5"><span class="section-number-3">4.5</span> User-defined topic types </h3>
+<div class="outline-text-3" id="text-4_5">
+
+
+<p>
+Finally, you can write your own elisp functions to define new kinds of
+topics. Any new topic type will need to be added to
+<code>org-drill-card-type-alist</code>, and cards using that topic type will need to have
+it as the value of their <code>DRILL_CARD_TYPE</code> property. For an example, see the
+function <code>org-drill-present-spanish-verb</code>, which defines the new topic type
+<code>spanish_verb</code>, used in 'spanish.org'.
+</p>
+<p>
+See the file <a href="spanish.html">spanish.org</a> for a full set of example material.
+</p>
+
+</div>
+</div>
+
+</div>
+
+<div id="outline-container-5" class="outline-2">
+<h2 id="sec-5"><span class="section-number-2">5</span> Running the drill session </h2>
+<div class="outline-text-2" id="text-5">
+
+
+
+<p>
+Start a drill session with <code>M-x org-drill</code>. By default, this includes all
+non-hidden topics in the current buffer. <code>org-drill</code> takes an optional
+argument, SCOPE, which allows it to take drill items from other
+sources. Possible values for SCOPE are:
+</p>
+<dl>
+<dt>tree</dt><dd>
+The subtree starting with the entry at the cursor.
+</dd>
+<dt>file</dt><dd>
+The current buffer, including both hidden and non-hidden items.
+</dd>
+<dt>file-with-archives</dt><dd>
+The current buffer, and any archives associated with it.
+</dd>
+<dt>agenda</dt><dd>
+All agenda files.
+</dd>
+<dt>agenda-with-archives</dt><dd>
+All agenda files with any archive files associated
+with them.
+</dd>
+<dt>(file1 file2 &hellip;)</dt><dd>
+A list of filenames. All files in the list will be
+scanned.
+
+</dd>
+</dl>
+
+<p>During a drill session, you will be presented with each item, then asked to
+rate your recall of it by pressing a key between 0 and 5. The meaning of these
+numbers is (taken from <code>org-learn</code>):
+</p>
+<dl>
+<dt>0</dt><dd>
+Completely forgot. 
+</dd>
+<dt>1</dt><dd>
+Even after seeing the answer, it still took a bit to sink in. 
+</dd>
+<dt>2</dt><dd>
+After seeing the answer, you remembered it. 
+</dd>
+<dt>3</dt><dd>
+It took you awhile, but you finally remembered.
+</dd>
+<dt>4</dt><dd>
+After a little bit of thought you remembered.
+</dd>
+<dt>5</dt><dd>
+You remembered the item really easily.
+
+</dd>
+</dl>
+
+<p>You can press '?'  at the prompt if you have trouble remembering what the
+numbers 0&ndash;5 signify. At any time you can press 'q' to finish the drill early
+(your progress will be saved), or 'e' to finish the drill and jump to the
+current topic for editing (your progress up to that point will be saved).
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-6" class="outline-2">
+<h2 id="sec-6"><span class="section-number-2">6</span> Leeches </h2>
+<div class="outline-text-2" id="text-6">
+
+
+
+<p>
+From the Anki website, <a href="http://ichi2.net/anki/wiki/Leeches">http://ichi2.net/anki/wiki/Leeches</a>:
+</p>
+<blockquote>
+
+<p>Leeches are cards that you keep on forgetting. Because they require so many
+reviews, they take up a lot more of your time than other cards.
+</p>
+</blockquote>
+
+
+<p>
+Like Anki, Org-Drill defines leeches as cards that you have "failed" many
+times. The number of times an item must be failed before it is considered a
+leech is set by the variable <code>org-drill-leech-failure-threshold</code> (15 by
+default). When you fail to remember an item more than this many times, the item
+will be given the <code>:leech:</code> tag.
+</p>
+<p>
+Leech items can be handled in one of three ways. You can choose how Org-Drill
+handles leeches by setting the variable <code>org-drill-leech-method</code> to one of the
+following values:
+</p><dl>
+<dt>nil</dt><dd>
+Leech items are tagged with the <code>leech</code> tag, but otherwise treated the
+same as normal items.
+</dd>
+<dt>skip</dt><dd>
+Leech items are not included in drill sessions.
+</dd>
+<dt>warn</dt><dd>
+Leech items are still included in drill sessions, but a warning
+message is printed when each leech item is presented.
+
+</dd>
+</dl>
+
+<p>The best way to deal with a leech is either to delete it, or reformulate it so
+that it is easier to remember, for example by splitting it into more than one
+card. 
+</p>
+<p>
+See <a href="http://www.supermemo.com/help/leech.htm">the SuperMemo website</a> for more on leeches.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-7" class="outline-2">
+<h2 id="sec-7"><span class="section-number-2">7</span> Incremental reading </h2>
+<div class="outline-text-2" id="text-7">
+
+
+
+<p>
+An innovative feature of the program SuperMemo is so-called "incremental
+reading". This refers to the ability to quickly and easily make drill items
+from selected portions of text as you read an article (a web page for
+example). See <a href="http://www.supermemo.com/help/read.htm">the SuperMemo website</a> for more on incremental reading.
+</p>
+<p>
+Much of the infrastructure for incremental reading is already provided by Org
+Mode, with the help of some other emacs packages. You can provide yourself with
+an incremental reading facility by using 'org-capture' alongside a package that
+allows you to browse web pages in emacs &ndash; e.g. w3 or <a href="http://www.emacswiki.org/emacs/emacs-w3m">emacs-w3m</a>. There is a
+large variety of bookmarking packages for emacs which allow you to save your
+place in webpages (another important component of incremental reading). See the
+<a href="http://www.emacswiki.org/emacs/BookMarks">Emacs Wiki</a> for details.
+</p>
+<p>
+An example of using Org-Drill for incremental reading is given below. First,
+and most importantly, we need to define an <code>org-capture</code> template for captured
+facts:
+</p>
+
+
+
+<pre class="src src-emacs-lisp"><span style="color: #696969;">(</span>setq org-capture-templates
+      `<span style="color: #696969;">((</span><span style="color: #008b00;">"f"</span> <span style="color: #008b00;">"Fact"</span> entry
+         <span style="color: #696969;">(</span>file+headline <span style="color: #008b00;">"my_new_facts.org"</span> <span style="color: #008b00;">"Incoming"</span><span style="color: #696969;">)</span>
+         <span style="color: #696969;">(</span>concat <span style="color: #008b00;">"* Fact #%(format \"%s\" (float-time))        :"</span>
+                 org-drill-question-tag
+                 <span style="color: #008b00;">":%^g\n
+    :PROPERTIES:
+    :DATE_ADDED: %t
+    :SOURCE_URL: %a
+    :END:\n
+%i%?\n\n"</span><span style="color: #696969;">)</span>
+         <span style="color: #4169e1;">:empty-lines</span> 1
+         <span style="color: #4169e1;">:immediate-finish</span> nil<span style="color: #696969;">)</span>
+        <span style="color: #db7093;">;; </span><span style="color: #db7093;">...other capture templates...
+</span>    <span style="color: #696969;">))</span>
+</pre>
+
+
+
+<p>
+Using this template, you can select a region of text which contains a fact you
+want to remember, for example while reading a web page. You then invoke the
+capture template above, and the selected text will be turned into a new fact
+and saved to whichever file and heading you nominate in the template. You will
+be given the opportunity to edit the fact &ndash; you should make sure that the fact
+makes sense independent of its context, as that is how it will be presented to
+you. The easiest way to turn the text into a 'question' is by cloze
+deletion. All you need to do is surround the 'hidden' parts of the text with
+square brackets. 
+</p>
+<p>
+Next, you start reading a web page within Emacs. For example, suppose you are
+reading the Wikipedia entry on tuberculosis <a href="http://en.wikipedia.org/wiki/Tuberculosis">here</a>.
+</p>
+<p>
+You read the following:
+</p>
+<blockquote>
+
+<p>The classic symptoms of tuberculosis are a chronic cough with blood-tinged
+sputum, fever, night sweats, and weight loss. Infection of other organs causes
+a wide range of symptoms. Treatment is difficult and requires long courses of
+multiple antibiotics. Antibiotic resistance is a growing problem in
+(extensively) multi-drug-resistant tuberculosis. Prevention relies on screening
+programs and vaccination, usually with Bacillus Calmette-Guérin vaccine.
+</p>
+</blockquote>
+
+
+<p>
+You decide you want to remember that "Bacillus Calmette-Guérin vaccine" is the
+name of the vaccine against tuberculosis. First, you select the relevant
+portion of the text as the active region:
+</p>
+<blockquote>
+
+<p>The classic symptoms of tuberculosis are a chronic cough with blood-tinged
+sputum, fever, night sweats, and weight loss. Infection of other organs causes
+a wide range of symptoms. Treatment is difficult and requires long courses of
+multiple antibiotics. Antibiotic resistance is a growing problem in
+(extensively) multi-drug-resistant tuberculosis. 
+<font style="background-color: yellow;">Prevention relies
+on screening programs and vaccination, usually with Bacillus Calmette-Guérin
+vaccine.</font>
+</p>
+</blockquote>
+
+
+<p>
+Then you press a key to "capture" this piece of text (whatever key you have
+bound to <code>org-capture</code>), followed by "f" to use the "Fact" template shown
+above. 
+</p>
+<p>
+A temporary buffer will be created, containing something like:
+</p>
+
+
+
+<pre class="example">** Fact #1282372386.671655                           :drill:
+
+    :PROPERTIES:
+    :DATE_ADDED: &lt;2010-08-21 Sat&gt;
+    :SOURCE_URL: [[http://en.wikipedia.org/wiki/Tuberculosis][Tuberculosis - Wikipedia, the free encyclopedia]]
+    :END:
+
+Prevention relies on screening programs and vaccination, usually with Bacillus
+Calmette-Guérin vaccine.
+</pre>
+
+
+
+<p>
+Note that the fact's properties automatically contain the date of its creation,
+and a URL linking back to the origin of the fact &ndash; the web page you were
+browsing, in this case. Because fact "titles" are seldom necessary, the title
+of the fact contains a meaningless but unique number (the number of seconds
+elapsed since 1/1/1970).
+</p>
+<p>
+Next, you edit the sentence so that it makes sense when you are presented with
+it out of context, and you also mark the key fact you want to remember by
+surrounding it with single square brackets.
+</p>
+<pre class="example">
+Prevention of tuberculosis relies on screening programs and vaccination,
+usually with [Bacillus Calmette-Guérin vaccine].
+</pre>
+
+
+<p>
+You then press <code>C-c C-c</code>, and the new fact is saved. You continue reading the
+web page, adding other facts if you wish.
+</p>
+<p>
+Points to note:
+</p><ul>
+<li>
+You can of course define several different "fact" templates, each of which
+might send its fact to a different file or subheading, or give it different
+tags or properties, for example.
+</li>
+<li>
+You don't have to use a web browser within Emacs. The "fact" template above
+will work if you do not have text selected &ndash; the new fact will be empty. You
+could read a web page (or PDF document, etc) in a program of your choice,
+copy some text to the clipboard, then switch to Emacs and paste it into a new
+empty fact.
+</li>
+<li>
+Alternatively, you could define a template that takes its text from the
+clipboard rather than from the selected region. You can do this by changing
+the <code>%i</code> in the fact template to <code>%x</code> or <code>%^C</code>. See the documentation for the
+variable <code>org-capture-templates</code> for more details.
+
+
+</li>
+</ul>
+</div>
+
+</div>
+
+<div id="outline-container-8" class="outline-2">
+<h2 id="sec-8"><span class="section-number-2">8</span> Still to do </h2>
+<div class="outline-text-2" id="text-8">
+
+
+
+<ul>
+<li>
+hide drawers.
+</li>
+<li>
+<code>org-drill-question-tag</code> should use a tag match string, rather than a
+single tag
+</li>
+<li>
+progress indicator during drill session: cumulative time, time spent thinking
+about this card
+</li>
+<li>
+perhaps take account of item priorities, showing high priority items first
+
+</li>
+</ul>
+</div>
+</div>
+<div id="postamble">
+<p class="author"> Author: Paul Sexton
+</p>
+<p class="date"> Date: 2010-08-22 09:45:05 NZST</p>
+<p class="creator">HTML generated by org-mode 7.01trans in emacs 23</p>
+</div>
+</div>
+</body>
+</html>
