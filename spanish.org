@@ -45,6 +45,10 @@ llamar = to be named
 # cloze deletion of test in [square brackets], without the need to hide any
 # subtopics (though they WILL still be hidden if present).
 
+# If the text between the brackets contains a `|' character, everything after
+# that character is considered to be a `hint', and will remain visible when the
+# rest of the clozed text is hidden.
+
 # Set the variable `org-drill-use-visible-cloze-face-p' to `t' if you want 
 # cloze-deleted text to be shown in a special face when you are editing org
 # mode buffers.
@@ -56,7 +60,7 @@ other than -z], add /-es/.
 
 *** Grammar Rule                                     :drill:
 
-To form an adverb from an adjective, add [-mente] to the [feminine] (gender)
+To form an adverb from an adjective, add [-mente] to the [feminine|gender] 
 form of the adjective.
 
 ** Vocabulary

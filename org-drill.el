@@ -63,6 +63,17 @@ Nil means unlimited."
   :type '(choice integer (const nil)))
 
 
+(defcustom org-drill-failure-quality
+  2
+  "If the quality of recall for an item is this number or lower,
+it is regarded as an unambiguous failure, and the repetition
+interval for the card is reset to 0 days.  By default this is
+2. For Mnemosyne-like behaviour, set it to 1.  Other values are
+not really sensible."
+  :group 'org-drill
+  :type '(choice (const 2) (const 1)))
+
+
 (defcustom org-drill-leech-failure-threshold
   15
   "If an item is forgotten more than this many times, it is tagged
@@ -98,16 +109,22 @@ buffers?"
   :type 'boolean)
 
 
-
 (defface org-drill-hidden-cloze-face
-  '((t (:foreground "blue" :background "blue")))
+  '((t (:foreground "deep sky blue" :background "blue")))
   "The face used to hide the contents of cloze phrases."
   :group 'org-drill)
 
 
+(setplist 'org-drill-cloze-overlay-defaults
+          '(display "[...]"
+                    face org-drill-hidden-cloze-face
+                    window t))
+
+
 (defvar org-drill-cloze-regexp
-  ;; old "[^][]\\(\\[[^][][^]]*\\]\\)"
-  "\\(\\[.*?\\]\\|^[^[[:cntrl:]]*?\\]\\|\\[.*?$\\)")
+  ;; ver 1   "[^][]\\(\\[[^][][^]]*\\]\\)"
+  ;; ver 2   "\\(\\[.*?\\]\\|^[^[[:cntrl:]]*?\\]\\|\\[.*?$\\)"
+  "\\(\\[.*?\\]\\|\\[.*?[[:cntrl:]]+.*?\\]\\)")
 
 
 (defcustom org-drill-card-type-alist
@@ -122,6 +139,24 @@ or nil, and FUNCTION is a function which takes no arguments and returns a
 boolean value."
   :group 'org-drill
   :type '(alist :key-type (choice string (const nil)) :value-type function))
+
+
+(defcustom org-drill-spaced-repetition-algorithm
+  'sm5
+  "Which SuperMemo spaced repetition algorithm to use for scheduling items.
+Available choices are SM2 and SM5."
+  :group 'org-drill
+  :type '(choice (const 'sm2) (const 'sm5)))
+
+(defcustom org-drill-add-random-noise-to-intervals-p
+  nil
+  "If true, the number of days until an item's next repetition
+will vary slightly from the interval calculated by the SM2
+algorithm. The variation is very small when the interval is
+small, and scales up with the interval. The code for calculating
+random noise is adapted from Mnemosyne."
+  :group 'org-drill
+  :type 'boolean)
 
 
 (defvar *org-drill-done-entry-count* 0)
@@ -151,6 +186,14 @@ boolean value."
   "Is the current entry a 'drill item'?"
   (or (assoc "LEARN_DATA" (org-entry-properties nil))
       (member org-drill-question-tag (org-get-local-tags))))
+
+
+(defun org-part-of-drill-entry-p ()
+  "Is the current entry either the main heading of a 'drill item',
+or a subheading within a drill item?"
+  (or (org-drill-entry-p)
+      ;; Does this heading INHERIT the drill tag
+      (member org-drill-question-tag (org-get-tags-at))))
 
 
 (defun org-drill-entry-leech-p ()
@@ -184,6 +227,134 @@ boolean value."
       nil)))
 
 
+;;; SM2 Algorithm =============================================================
+
+
+(defun determine-next-interval-sm2 (last-interval n ef quality of-matrix)
+  "Arguments:
+- LAST-INTERVAL -- the number of days since the item was last reviewed.
+- N -- the number of times the item has been successfully reviewed
+- EF -- the 'easiness factor'
+- QUALITY -- 0 to 5
+- OF-MATRIX -- a matrix of values, used by SM5 but not by SM2.
+
+Returns a list: (INTERVAL N EF OFMATRIX), where:
+- INTERVAL is the number of days until the item should next be reviewed
+- N is incremented by 1.
+- EF is modified based on the recall quality for the item.
+- OF-MATRIX is not modified."
+  (assert (> n 0))
+  (assert (and (>= quality 0) (<= quality 5)))
+  (if (<= quality org-drill-failure-quality)
+      ;; When an item is failed, its interval is reset to 0,
+      ;; but its EF is unchanged
+      (list -1 1 ef of-matrix)
+    ;; else:
+    (let* ((next-ef (modify-e-factor ef quality))
+           (interval
+            (cond
+             ((<= n 1) 1)
+             ((= n 2)
+              (cond
+               (org-drill-add-random-noise-to-intervals-p
+                (case quality
+                  (5 6)
+                  (4 4)
+                  (3 3)
+                  (2 1)
+                  (t -1)))
+               (t 6)))
+             (t (ceiling (* last-interval next-ef))))))
+      (list (round
+             (if org-drill-add-random-noise-to-intervals-p
+                 (+ last-interval (* (- interval last-interval)
+                                     (org-drill-random-dispersal-factor)))
+               interval))
+            (1+ n) next-ef of-matrix))))
+
+
+;;; SM5 Algorithm =============================================================
+
+;;; From http://www.supermemo.com/english/ol/sm5.htm
+(defun org-drill-random-dispersal-factor ()
+  (let ((a 0.047)
+        (b 0.092)
+        (p (- (random* 1.0) 0.5)))
+    (flet ((sign (n)
+                 (cond ((zerop n) 0)
+                       ((plusp n) 1)
+                       (t -1))))
+      (/ (+ 100 (* (* (/ -1 b) (log (- 1 (* (/ b a ) (abs p)))))
+                   (sign p)))
+         100))))
+      
+
+(defun inter-repetition-interval-sm5 (last-interval n ef &optional of-matrix)
+  (let ((of (get-optimal-factor n ef of-matrix)))
+    (if (= 1 n)
+	of
+      (* of last-interval))))
+
+
+(defun determine-next-interval-sm5 (last-interval n ef quality of-matrix)
+  (assert (> n 0))
+  (assert (and (>= quality 0) (<= quality 5)))
+  (let ((next-ef (modify-e-factor ef quality))
+        (interval nil))
+    (setq of-matrix
+          (set-optimal-factor n next-ef of-matrix
+                              (modify-of (get-optimal-factor n ef of-matrix)
+                                         quality org-learn-fraction))
+          ef next-ef)
+    
+    (cond
+     ;; "Failed" -- reset repetitions to 0, 
+     ((<= quality org-drill-failure-quality)
+      (list -1 1 ef of-matrix))      ; Not clear if OF matrix is supposed to be
+                                     ; preserved
+     ;; For a zero-based quality of 4 or 5, don't repeat
+     ((and (>= quality 4)
+           (not org-learn-always-reschedule))
+      (list 0 (1+ n) ef of-matrix))     ; 0 interval = unschedule
+     (t
+      (setq interval (inter-repetition-interval-sm5
+                      last-interval n ef of-matrix))
+      (if org-drill-add-random-noise-to-intervals-p
+          (setq interval (+ last-interval
+                            (* (- interval last-interval)
+                               (org-drill-random-dispersal-factor)))))
+      (list (round interval) (1+ n) ef of-matrix)))))
+
+
+;;; Essentially copied from `org-learn.el', but modified to
+;;; optionally call the SM2 function above.
+(defun org-drill-smart-reschedule (quality)
+  (interactive "nHow well did you remember the information (on a scale of 0-5)? ")
+  (let* ((learn-str (org-entry-get (point) "LEARN_DATA"))
+	 (learn-data (or (and learn-str
+			      (read learn-str))
+			 (copy-list initial-repetition-state)))
+	 closed-dates)
+    (setq learn-data
+          (case org-drill-spaced-repetition-algorithm
+            (sm5 (determine-next-interval-sm5 (nth 0 learn-data)
+                                              (nth 1 learn-data)
+                                              (nth 2 learn-data)
+                                              quality
+                                              (nth 3 learn-data)))
+            (sm2 (determine-next-interval-sm2 (nth 0 learn-data)
+                                              (nth 1 learn-data)
+                                              (nth 2 learn-data)
+                                              quality
+                                              (nth 3 learn-data)))))
+    (org-entry-put (point) "LEARN_DATA" (prin1-to-string learn-data))
+    (cond
+     ((= 0 (nth 0 learn-data))
+      (org-schedule t))
+     (t
+      (org-schedule nil (time-add (current-time)
+				  (days-to-time (nth 0 learn-data))))))))
+
 
 (defun org-drill-reschedule ()
   "Returns quality rating (0-5), or nil if the user quit."
@@ -208,10 +379,10 @@ How well did you do? (0-5, ?=help, q=quit)"
       (let ((quality (- ch ?0))
             (failures (cdr (assoc "DRILL_FAILURE_COUNT" (org-entry-properties nil)))))
         (save-excursion
-          (org-smart-reschedule quality))
+          (org-drill-smart-reschedule quality))
         (push quality *org-drill-session-qualities*)
         (cond
-         ((< quality 3)
+         ((<= quality org-drill-failure-quality)
           (when org-drill-leech-failure-threshold
             (setq failures (if failures (string-to-number failures) 0))
             (org-set-property "DRILL_FAILURE_COUNT"
@@ -264,6 +435,31 @@ Consider reformulating the item to make it easier to remember.\n" prompt)))
       (?q nil)
       (?e 'edit)
       (otherwise t))))
+
+
+(defun org-drill-hide-clozed-text ()
+  (let ((ovl nil))
+    (save-excursion
+      (while (re-search-forward org-drill-cloze-regexp nil t)
+        (setf ovl (make-overlay (match-beginning 0) (match-end 0)))
+        (overlay-put ovl 'category
+                     'org-drill-cloze-overlay-defaults)
+        (when (find ?| (match-string 0))
+          (overlay-put ovl
+                       'display
+                       (format "[...%s]"
+                               (substring-no-properties
+                                (match-string 0)
+                                (1+ (position ?| (match-string 0)))
+                                (1- (length (match-string 0)))))))))))
+
+
+(defun org-drill-unhide-clozed-text ()
+  (save-excursion
+    (dolist (ovl (overlays-in (point-min) (point-max)))
+      (when (eql 'org-drill-cloze-overlay-defaults (overlay-get ovl 'category))
+        (delete-overlay ovl)))))
+
 
 
 ;;; Presentation functions ====================================================
@@ -375,10 +571,15 @@ See `org-drill' for more details."
       (let ((presentation-fn (cdr (assoc card-type org-drill-card-type-alist))))
         (cond
          (presentation-fn
-          (highlight-regexp org-drill-cloze-regexp
-                            'org-drill-hidden-cloze-face)
-          (setq cont (funcall presentation-fn))
-          (unhighlight-regexp org-drill-cloze-regexp))
+          (org-drill-hide-clozed-text)
+          ;;(highlight-regexp org-drill-cloze-regexp
+          ;;                  'org-drill-hidden-cloze-face)
+          (unwind-protect
+              (progn
+                (setq cont (funcall presentation-fn)))
+            (org-drill-unhide-clozed-text))
+          ;;(unhighlight-regexp org-drill-cloze-regexp)
+          )
          (t
           (error "Unknown card type: '%s'" card-type))))
       
@@ -391,7 +592,6 @@ See `org-drill' for more details."
        (t
         (save-excursion
           (org-drill-reschedule)))))))
-
 
 
 (defun org-drill-entries (entries)
@@ -454,17 +654,17 @@ Session finished. Press a key to continue..."
  (format-seconds "%h:%.2m:%.2s"
                  (- (float-time (current-time)) *org-drill-start-time*))
  (round (* 100 (count 5 *org-drill-session-qualities*))
-        (length *org-drill-session-qualities*))
+        (max 1 (length *org-drill-session-qualities*)))
  (round (* 100 (count 4 *org-drill-session-qualities*))
-        (length *org-drill-session-qualities*))
+        (max 1 (length *org-drill-session-qualities*)))
  (round (* 100 (count 3 *org-drill-session-qualities*))
-        (length *org-drill-session-qualities*))
+        (max 1 (length *org-drill-session-qualities*)))
  (round (* 100 (count 2 *org-drill-session-qualities*))
-        (length *org-drill-session-qualities*))
+        (max 1 (length *org-drill-session-qualities*)))
  (round (* 100 (count 1 *org-drill-session-qualities*))
-        (length *org-drill-session-qualities*))
+        (max 1 (length *org-drill-session-qualities*)))
  (round (* 100 (count 0 *org-drill-session-qualities*))
-        (length *org-drill-session-qualities*))
+        (max 1 (length *org-drill-session-qualities*)))
  )))
 
 
@@ -526,7 +726,8 @@ agenda-with-archives
                  (cond
                   ((org-drill-entry-new-p)
                    (push (point-marker) new-entries))
-                  ((member (org-drill-entry-last-quality) '(0 1 2))
+                  ((<= (org-drill-entry-last-quality)
+                       org-drill-failure-quality)
                    (push (point-marker) failed-entries))
                   (t
                    (push (point-marker) old-entries)))))
