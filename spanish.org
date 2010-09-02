@@ -117,6 +117,26 @@ Cuidado con *el perro*.
 Beware of *the dog*.
 
 
+*** Noun                                             :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: multisided
+    :END:
+
+**** Spanish
+
+la manzana
+
+**** English
+
+the apple
+
+**** Picture
+
+The Spanish word for...
+
+[[file:apple.jpg][Picture]]
+
+
 *** Adjective                                        :drill:
     :PROPERTIES:
     :DRILL_CARD_TYPE: twosided
