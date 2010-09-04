@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing with org-learn
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 1.1 
+;;; Version: 1.3 
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -115,6 +115,28 @@ buffers?"
   :group 'org-drill)
 
 
+(defcustom org-drill-new-count-color
+  "royal blue"
+  "Foreground colour used to display the count of remaining new items
+during a drill session."
+  :group 'org-drill
+  :type 'color)
+
+(defcustom org-drill-mature-count-color
+  "green"
+  "Foreground colour used to display the count of remaining mature items
+during a drill session. Mature items are due for review, but are not new."
+  :group 'org-drill
+  :type 'color)
+
+(defcustom org-drill-failed-count-color
+  "red"
+  "Foreground colour used to display the count of remaining failed items
+during a drill session."
+  :group 'org-drill
+  :type 'color)
+
+
 (setplist 'org-drill-cloze-overlay-defaults
           '(display "[...]"
                     face org-drill-hidden-cloze-face
@@ -159,10 +181,29 @@ random noise is adapted from Mnemosyne."
   :type 'boolean)
 
 
-(defvar *org-drill-done-entry-count* 0)
-(defvar *org-drill-pending-entry-count* 0)
 (defvar *org-drill-session-qualities* nil)
 (defvar *org-drill-start-time* 0)
+(defvar *org-drill-new-entries* nil)
+(defvar *org-drill-mature-entries* nil)
+(defvar *org-drill-failed-entries* nil)
+(defvar *org-drill-again-entries* nil)
+(defvar *org-drill-done-entries* nil)
+
+
+;;;; Utilities ================================================================
+
+
+(defun free-marker (m)
+  (set-marker m nil))
+
+
+(defmacro pop-random (place)
+  (let ((elt (gensym)))
+    `(if (null ,place)
+         nil
+       (let ((,elt (nth (random (length ,place)) ,place)))
+         (setq ,place (remove ,elt ,place))
+         ,elt))))
 
 
 (defun shuffle-list (list)
@@ -184,7 +225,8 @@ random noise is adapted from Mnemosyne."
 
 (defun org-drill-entry-p ()
   "Is the current entry a 'drill item'?"
-  (or (assoc "LEARN_DATA" (org-entry-properties nil))
+  (or (org-entry-get (point) "LEARN_DATA")
+      ;;(assoc "LEARN_DATA" (org-entry-properties nil))
       (member org-drill-question-tag (org-get-local-tags))))
 
 
@@ -227,14 +269,14 @@ drill entry."
 
 
 (defun org-drill-entry-new-p ()
-  (let ((item-time (org-get-scheduled-time (point))))
-    (and (org-drill-entry-p)
+  (and (org-drill-entry-p)
+       (let ((item-time (org-get-scheduled-time (point))))
          (null item-time))))
 
 
 
 (defun org-drill-entry-last-quality ()
-  (let ((quality (cdr (assoc "DRILL_LAST_QUALITY" (org-entry-properties nil)))))
+  (let ((quality (org-entry-get (point) "DRILL_LAST_QUALITY")))
     (if quality
         (string-to-number quality)
       nil)))
@@ -394,7 +436,7 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
     (cond
      ((and (>= ch ?0) (<= ch ?5))
       (let ((quality (- ch ?0))
-            (failures (cdr (assoc "DRILL_FAILURE_COUNT" (org-entry-properties nil)))))
+            (failures (org-entry-get (point) "DRILL_FAILURE_COUNT")))
         (save-excursion
           (org-drill-smart-reschedule quality))
         (push quality *org-drill-session-qualities*)
@@ -435,23 +477,45 @@ the current topic."
 
 
 (defun org-drill-presentation-prompt (&rest fmt-and-args)
-  (let ((ch nil)
-        (prompt
-         (if fmt-and-args
-             (apply 'format
-                    (first fmt-and-args)
-                    (rest fmt-and-args))
-           (concat "Press any key to see the answer, "
-                   "'e': edit, 't': tags, 'q': quit."))))
+  (let* ((item-start-time (current-time))
+         (ch nil)
+         (last-second 0)
+         (prompt
+          (if fmt-and-args
+              (apply 'format
+                     (first fmt-and-args)
+                     (rest fmt-and-args))
+            (concat "Press any key to see the answer, "
+                    "e=edit, t=tags, q=quit."))))
     (setq prompt
-          (format "(%d) %s" *org-drill-pending-entry-count* prompt))
+          (format "%s %s %s %s"
+                  (propertize
+                   (number-to-string (+ (length *org-drill-again-entries*)
+                                        (length *org-drill-failed-entries*)))
+                   'face `(:foreground ,org-drill-failed-count-color))
+                  (propertize
+                   (number-to-string (length *org-drill-mature-entries*))
+                   'face `(:foreground ,org-drill-mature-count-color))
+                  (propertize
+                   (number-to-string (length *org-drill-new-entries*))
+                   'face `(:foreground ,org-drill-new-count-color))
+                  prompt))
     (if (and (eql 'warn org-drill-leech-method)
              (org-drill-entry-leech-p))
-        (setq prompt (concat "!!! LEECH ITEM !!!
+        (setq prompt (concat
+                      (propertize "!!! LEECH ITEM !!!
 You seem to be having a lot of trouble memorising this item.
-Consider reformulating the item to make it easier to remember.\n" prompt)))
+Consider reformulating the item to make it easier to remember.\n"
+                                  'face '(:foreground "red"))
+                      prompt)))
     (while (memq ch '(nil ?t))
-      (setq ch (read-char-exclusive prompt))
+      (while (not (input-pending-p))
+        (message (concat (format-time-string
+                          "%M:%S " (time-subtract
+                                   (current-time) item-start-time))
+                         prompt))
+        (sit-for 1))
+      (setq ch (read-char-exclusive))
       (if (eql ch ?t)
           (org-set-tags-command)))
     (case ch
@@ -597,7 +661,7 @@ See `org-drill' for more details."
   ;;  (error "Point is not inside a drill entry"))
   ;;(unless (org-at-heading-p)
   ;;  (org-back-to-heading))
-  (let ((card-type (cdr (assoc "DRILL_CARD_TYPE" (org-entry-properties nil))))
+  (let ((card-type (org-entry-get (point) "DRILL_CARD_TYPE"))
         (cont nil))
     (save-restriction
       (org-narrow-to-subtree) 
@@ -626,78 +690,176 @@ See `org-drill' for more details."
           (org-drill-reschedule)))))))
 
 
-(defun org-drill-entries (entries)
+;; (defun org-drill-entries (entries)
+;;   "Returns nil, t, or a list of markers representing entries that were
+;; 'failed' and need to be presented again before the session ends."
+;;   (let ((again-entries nil))
+;;     (setq *org-drill-done-entry-count* 0
+;;           *org-drill-pending-entry-count* (length entries))
+;;     (if (and org-drill-maximum-items-per-session
+;;              (> (length entries)
+;;                 org-drill-maximum-items-per-session))
+;;         (setq entries (subseq entries 0
+;;                               org-drill-maximum-items-per-session)))
+;;     (block org-drill-entries
+;;       (dolist (m entries)
+;;         (save-restriction
+;;           (switch-to-buffer (marker-buffer m))
+;;           (goto-char (marker-position m))
+;;           (setq result (org-drill-entry))
+;;           (cond
+;;            ((null result)
+;;             (message "Quit")
+;;             (return-from org-drill-entries nil))
+;;            ((eql result 'edit)
+;;             (setq end-pos (point-marker))
+;;             (return-from org-drill-entries nil))
+;;            (t
+;;             (cond
+;;              ((< result 3)
+;;               (push m again-entries))
+;;              (t
+;;               (decf *org-drill-pending-entry-count*)
+;;               (incf *org-drill-done-entry-count*)))
+;;             (when (and org-drill-maximum-duration
+;;                        (> (- (float-time (current-time)) *org-drill-start-time*)
+;;                           (* org-drill-maximum-duration 60)))
+;;               (message "This drill session has reached its maximum duration.")
+;;               (return-from org-drill-entries nil))))))
+;;       (or again-entries
+;;           t))))
+
+
+(defun org-drill-entries-pending-p ()
+  (or *org-drill-new-entries*
+      *org-drill-failed-entries*
+      *org-drill-mature-entries*
+      *org-drill-again-entries*))
+
+
+(defun org-drill-pending-entry-count ()
+  (+ (length *org-drill-new-entries*)
+     (length *org-drill-failed-entries*)
+     (length *org-drill-mature-entries*)
+     (length *org-drill-again-entries*)))
+
+
+(defun org-drill-maximum-duration-reached-p ()
+  "Returns true if the current drill session has continued past its
+maximum duration."
+  (and org-drill-maximum-duration
+       *org-drill-start-time*
+       (> (- (float-time (current-time)) *org-drill-start-time*)
+          (* org-drill-maximum-duration 60))))
+
+
+(defun org-drill-maximum-item-count-reached-p ()
+  "Returns true if the current drill session has reached the
+maximum number of items."
+  (and org-drill-maximum-items-per-session
+       (>= (length *org-drill-done-entries*)
+           org-drill-maximum-items-per-session)))
+
+
+(defun org-drill-pop-next-pending-entry ()
+  (cond
+   ;; First priority is items we failed in a prior session.
+   ((and *org-drill-failed-entries*
+         (not (org-drill-maximum-item-count-reached-p))
+         (not (org-drill-maximum-duration-reached-p)))
+    (pop-random *org-drill-failed-entries*))
+   ;; Next priority is newly added items, and items which
+   ;; are not new and were not failed when they were last
+   ;; reviewed.
+   ((and (or *org-drill-new-entries*
+             *org-drill-mature-entries*)
+         (not (org-drill-maximum-item-count-reached-p))
+         (not (org-drill-maximum-duration-reached-p)))
+    (if (< (random (+ (length *org-drill-new-entries*)
+                      (length *org-drill-mature-entries*)))
+           (length *org-drill-new-entries*))
+        (pop-random *org-drill-new-entries*)
+      ;; else
+      (pop-random *org-drill-mature-entries*)))
+   ;; After all the above are done, last priority is items
+   ;; that were failed earlier THIS SESSION.
+   (*org-drill-again-entries*
+    (pop-random *org-drill-again-entries*))
+   (t
+    nil)))
+
+
+(defun org-drill-entries ()
   "Returns nil, t, or a list of markers representing entries that were
 'failed' and need to be presented again before the session ends."
-  (let ((again-entries nil)
-        (*org-drill-done-entry-count* 0)
-        (*org-drill-pending-entry-count* (length entries)))
-    (if (and org-drill-maximum-items-per-session
-             (> (length entries)
-                org-drill-maximum-items-per-session))
-        (setq entries (subseq entries 0
-                              org-drill-maximum-items-per-session)))
-    (block org-drill-entries
-      (dolist (m entries)
-        (save-restriction
-          (switch-to-buffer (marker-buffer m))
-          (goto-char (marker-position m))
-          (setq result (org-drill-entry))
+  (block org-drill-entries
+    (while (org-drill-entries-pending-p)
+      (setq m (org-drill-pop-next-pending-entry))
+      (unless m
+        (error "Unexpectedly ran out of pending drill items"))
+      (save-excursion
+        (set-buffer (marker-buffer m))
+        (goto-char m)
+        (setq result (org-drill-entry))
+        (cond
+         ((null result)
+          (message "Quit")
+          (return-from org-drill-entries nil))
+         ((eql result 'edit)
+          (setq end-pos (point-marker))
+          (return-from org-drill-entries nil))
+         (t
           (cond
-           ((null result)
-            (message "Quit")
-            (return-from org-drill-entries nil))
-           ((eql result 'edit)
-            (setq end-pos (point-marker))
-            (return-from org-drill-entries nil))
+           ((<= result org-drill-failure-quality)
+            (push m *org-drill-again-entries*))
            (t
-            (cond
-             ((< result 3)
-              (push m again-entries))
-             (t
-              (decf *org-drill-pending-entry-count*)
-              (incf *org-drill-done-entry-count*)))
-            (when (and org-drill-maximum-duration
-                       (> (- (float-time (current-time)) *org-drill-start-time*)
-                          (* org-drill-maximum-duration 60)))
-              (message "This drill session has reached its maximum duration.")
-              (return-from org-drill-entries nil))))))
-      (or again-entries
-          t))))
+            (push m *org-drill-done-entries*)))))))))
+
 
 
 (defun org-drill-final-report ()
   (read-char-exclusive
-(format
- "%d items reviewed, %d items awaiting review
+   (format
+    "%d items reviewed
+%d items awaiting review (%s, %s, %s)
 Session duration %s
 
 Recall of reviewed items:
- Excellent (5):     %3d%%
- Good (4):          %3d%%
- Hard (3):          %3d%%
- Near miss (2):     %3d%%
- Failure (1):       %3d%%
- Total failure (0): %3d%%
+ Excellent (5):     %3d%%   |   Near miss (2):     %3d%%
+ Good (4):          %3d%%   |   Failure (1):       %3d%%
+ Hard (3):          %3d%%   |   Total failure (0): %3d%% 
 
 Session finished. Press a key to continue..." 
- *org-drill-done-entry-count*
- *org-drill-pending-entry-count*
- (format-seconds "%h:%.2m:%.2s"
-                 (- (float-time (current-time)) *org-drill-start-time*))
- (round (* 100 (count 5 *org-drill-session-qualities*))
-        (max 1 (length *org-drill-session-qualities*)))
- (round (* 100 (count 4 *org-drill-session-qualities*))
-        (max 1 (length *org-drill-session-qualities*)))
- (round (* 100 (count 3 *org-drill-session-qualities*))
-        (max 1 (length *org-drill-session-qualities*)))
- (round (* 100 (count 2 *org-drill-session-qualities*))
-        (max 1 (length *org-drill-session-qualities*)))
- (round (* 100 (count 1 *org-drill-session-qualities*))
-        (max 1 (length *org-drill-session-qualities*)))
- (round (* 100 (count 0 *org-drill-session-qualities*))
-        (max 1 (length *org-drill-session-qualities*)))
- )))
+    (length *org-drill-done-entries*)
+    (org-drill-pending-entry-count)
+    (propertize
+     (format "%d failed"
+             (+ (length *org-drill-failed-entries*)
+                (length *org-drill-again-entries*)))
+     'face `(:foreground ,org-drill-failed-count-color))
+    (propertize
+     (format "%d old"
+             (length *org-drill-mature-entries*))
+     'face `(:foreground ,org-drill-mature-count-color))
+    (propertize
+     (format "%d new"
+             (length *org-drill-new-entries*))
+     'face `(:foreground ,org-drill-new-count-color))
+    (format-seconds "%h:%.2m:%.2s"
+                    (- (float-time (current-time)) *org-drill-start-time*))
+    (round (* 100 (count 5 *org-drill-session-qualities*))
+           (max 1 (length *org-drill-session-qualities*)))
+    (round (* 100 (count 2 *org-drill-session-qualities*))
+           (max 1 (length *org-drill-session-qualities*)))
+    (round (* 100 (count 4 *org-drill-session-qualities*))
+           (max 1 (length *org-drill-session-qualities*)))
+    (round (* 100 (count 1 *org-drill-session-qualities*))
+           (max 1 (length *org-drill-session-qualities*)))
+    (round (* 100 (count 3 *org-drill-session-qualities*))
+           (max 1 (length *org-drill-session-qualities*)))
+    (round (* 100 (count 0 *org-drill-session-qualities*))
+           (max 1 (length *org-drill-session-qualities*)))
+    )))
 
 
 
@@ -744,8 +906,11 @@ agenda-with-archives
   (interactive)
   (let ((entries nil)
         (failed-entries nil)
-        (new-entries nil)
-        (old-entries nil)
+        (*org-drill-new-entries* nil)
+        (*org-drill-mature-entries* nil)
+        (*org-drill-failed-entries* nil)
+        (*org-drill-again-entries* nil)
+        (*org-drill-done-entries* nil)
         (result nil)
         (results nil)
         (end-pos nil)
@@ -753,42 +918,61 @@ agenda-with-archives
     (block org-drill
       (setq *org-drill-session-qualities* nil)
       (setq *org-drill-start-time* (float-time (current-time)))
-      (save-excursion
-        (org-map-entries
-         (lambda ()
-           (when (zerop (% (incf cnt) 50))
-             (message "Processing drill items: %s"
-                      (make-string (ceiling cnt 50) ?.)))
-           (when (org-drill-entry-due-p)
-             (cond
-              ((org-drill-entry-new-p)
-               (push (point-marker) new-entries))
-              ((<= (org-drill-entry-last-quality)
-                   org-drill-failure-quality)
-               (push (point-marker) failed-entries))
-              (t
-               (push (point-marker) old-entries)))))
-         (concat "+" org-drill-question-tag) scope)
-        ;; Failed first, then random mix of old + new
-        (setq entries (append (shuffle-list failed-entries)
-                              (shuffle-list (append old-entries
-                                                    new-entries))))
-        (cond
-         ((null entries)
-          (message "I did not find any pending drill items."))
-         (t
-          (let ((again t))
-            (while again
-              (when (listp again)
-                (setq entries (shuffle-list again)))
-              (setq again (org-drill-entries entries))
-              (cond
-               ((null again)
-                (return-from org-drill nil))
-               ((eql t again)
-                (setq again nil))))
-            (message "Drill session finished!")
-            )))))
+      (unwind-protect
+          (save-excursion
+            (let ((org-trust-scanner-tags t))
+              (org-map-entries
+               (lambda ()
+                 (when (zerop (% (incf cnt) 50))
+                   (message "Processing drill items: %4d%s"
+                            (+ (length *org-drill-new-entries*)
+                               (length *org-drill-mature-entries*)
+                               (length *org-drill-failed-entries*))
+                            (make-string (ceiling cnt 50) ?.)))
+                 (when (org-drill-entry-due-p)
+                   (cond
+                    ((org-drill-entry-new-p)
+                     (push (point-marker) *org-drill-new-entries*))
+                    ((<= (org-drill-entry-last-quality)
+                         org-drill-failure-quality)
+                     (push (point-marker) *org-drill-failed-entries*))
+                    (t
+                     (push (point-marker) *org-drill-mature-entries*)))))
+               (concat "+" org-drill-question-tag) scope))
+            ;; Failed first, then random mix of old + new
+            (setq entries (append (shuffle-list *org-drill-failed-entries*)
+                                  (shuffle-list (append *org-drill-mature-entries*
+                                                        *org-drill-new-entries*))))
+            (cond
+             ((and (null *org-drill-new-entries*)
+                   (null *org-drill-failed-entries*)
+                   (null *org-drill-mature-entries*))
+              (message "I did not find any pending drill items."))
+             (t
+              (org-drill-entries)
+              (message "Drill session finished!"))))
+        ;; (cond
+        ;; ((null entries)
+        ;;  (message "I did not find any pending drill items."))
+        ;; (t
+        ;;  (let ((again t))
+        ;;    (while again
+        ;;      (when (listp again)
+        ;;        (setq entries (shuffle-list again)))
+        ;;      (setq again (org-drill-entries entries))
+        ;;      (cond
+        ;;       ((null again)
+        ;;        (return-from org-drill nil))
+        ;;       ((eql t again)
+        ;;        (setq again nil))))
+        ;;    (message "Drill session finished!")
+        ;;    ))))
+        (progn
+          (dolist (m (append *org-drill-new-entries*
+                             *org-drill-failed-entries*
+                             *org-drill-again-entries*
+                             *org-drill-mature-entries*))
+            (free-marker m)))))
     (cond
      (end-pos
       (switch-to-buffer (marker-buffer end-pos))

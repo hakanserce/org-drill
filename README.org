@@ -447,7 +447,7 @@ or give it different tags or properties, for example.
 * Still to do
 
 - =org-drill-question-tag= should use a tag match string, rather than a
-  single tag
+  single tag? Can use =org-make-tag-matcher=.
 - progress indicator during drill session: cumulative time, time spent thinking
   about this card
 - perhaps take account of item priorities, showing high priority items first
