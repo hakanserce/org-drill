@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing with org-learn
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 1.3 
+;;; Version: 1.3.1
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -486,7 +486,7 @@ the current topic."
                      (first fmt-and-args)
                      (rest fmt-and-args))
             (concat "Press any key to see the answer, "
-                    "e=edit, t=tags, q=quit."))))
+                    "e=edit, t=tags, s=skip, q=quit."))))
     (setq prompt
           (format "%s %s %s %s"
                   (propertize
@@ -521,6 +521,7 @@ Consider reformulating the item to make it easier to remember.\n"
     (case ch
       (?q nil)
       (?e 'edit)
+      (?s 'skip)
       (otherwise t))))
 
 
@@ -685,6 +686,8 @@ See `org-drill' for more details."
         nil)
        ((eql cont 'edit)
         'edit)
+       ((eql cont 'skip)
+        'skip)
        (t
         (save-excursion
           (org-drill-reschedule)))))))
@@ -731,10 +734,13 @@ See `org-drill' for more details."
 
 
 (defun org-drill-entries-pending-p ()
-  (or *org-drill-new-entries*
-      *org-drill-failed-entries*
-      *org-drill-mature-entries*
-      *org-drill-again-entries*))
+  (or *org-drill-again-entries*
+      (and (not (org-drill-maximum-item-count-reached-p))
+           (not (org-drill-maximum-duration-reached-p))
+           (or *org-drill-new-entries*
+               *org-drill-failed-entries*
+               *org-drill-mature-entries*
+               *org-drill-again-entries*))))
 
 
 (defun org-drill-pending-entry-count ()
@@ -808,6 +814,8 @@ maximum number of items."
          ((eql result 'edit)
           (setq end-pos (point-marker))
           (return-from org-drill-entries nil))
+         ((eql result 'skip)
+          nil)   ; skip this item
          (t
           (cond
            ((<= result org-drill-failure-quality)
@@ -906,16 +914,16 @@ agenda-with-archives
   (interactive)
   (let ((entries nil)
         (failed-entries nil)
-        (*org-drill-new-entries* nil)
-        (*org-drill-mature-entries* nil)
-        (*org-drill-failed-entries* nil)
-        (*org-drill-again-entries* nil)
-        (*org-drill-done-entries* nil)
         (result nil)
         (results nil)
         (end-pos nil)
         (cnt 0))
     (block org-drill
+      (setq *org-drill-done-entries* nil
+            *org-drill-new-entries* nil
+            *org-drill-mature-entries* nil
+            *org-drill-failed-entries* nil
+            *org-drill-again-entries* nil)
       (setq *org-drill-session-qualities* nil)
       (setq *org-drill-start-time* (float-time (current-time)))
       (unwind-protect
