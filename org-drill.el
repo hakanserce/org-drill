@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing with org-learn
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 1.3.1
+;;; Version: 1.4
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -96,6 +96,12 @@ Possible values:
 
 
 (defface org-drill-visible-cloze-face
+  '((t (:foreground "darkseagreen")))
+  "The face used to hide the contents of cloze phrases."
+  :group 'org-drill)
+
+
+(defface org-drill-visible-cloze-hint-face
   '((t (:foreground "dark slate blue")))
   "The face used to hide the contents of cloze phrases."
   :group 'org-drill)
@@ -136,6 +142,13 @@ during a drill session."
   :group 'org-drill
   :type 'color)
 
+(defcustom org-drill-done-count-color
+  "sienna"
+  "Foreground colour used to display the count of reviewed items
+during a drill session."
+  :group 'org-drill
+  :type 'color)
+
 
 (setplist 'org-drill-cloze-overlay-defaults
           '(display "[...]"
@@ -146,7 +159,15 @@ during a drill session."
 (defvar org-drill-cloze-regexp
   ;; ver 1   "[^][]\\(\\[[^][][^]]*\\]\\)"
   ;; ver 2   "\\(\\[.*?\\]\\|^[^[[:cntrl:]]*?\\]\\|\\[.*?$\\)"
-  "\\(\\[.*?\\]\\|\\[.*?[[:cntrl:]]+.*?\\]\\)")
+  ;; ver 3!  "\\(\\[.*?\\]\\|\\[.*?[[:cntrl:]]+.*?\\]\\)"
+  "\\(\\[[[:cntrl:][:graph:][:space:]]*?\\)\\(\\||.+?\\)\\(\\]\\)")
+
+(defvar org-drill-cloze-keywords
+  `((,org-drill-cloze-regexp
+     (1 'org-drill-visible-cloze-face nil)
+     (2 'org-drill-visible-cloze-hint-face t)
+     (3 'org-drill-visible-cloze-face nil)
+     )))
 
 
 (defcustom org-drill-card-type-alist
@@ -154,6 +175,7 @@ during a drill session."
     ("simple" . org-drill-present-simple-card)
     ("twosided" . org-drill-present-two-sided-card)
     ("multisided" . org-drill-present-multi-sided-card)
+    ("multicloze" . org-drill-present-multicloze)
     ("spanish_verb" . org-drill-present-spanish-verb))
   "Alist associating card types with presentation functions. Each entry in the
 alist takes the form (CARDTYPE . FUNCTION), where CARDTYPE is a string
@@ -180,6 +202,13 @@ random noise is adapted from Mnemosyne."
   :group 'org-drill
   :type 'boolean)
 
+(defcustom org-drill-cram-hours
+  12
+  "When in cram mode, items are considered due for review if
+they were reviewed at least this many hours ago."
+  :group 'org-drill
+  :type 'integer)
+
 
 (defvar *org-drill-session-qualities* nil)
 (defvar *org-drill-start-time* 0)
@@ -188,6 +217,10 @@ random noise is adapted from Mnemosyne."
 (defvar *org-drill-failed-entries* nil)
 (defvar *org-drill-again-entries* nil)
 (defvar *org-drill-done-entries* nil)
+(defvar *org-drill-cram-mode* nil
+  "Are we in 'cram mode', where all items are considered due
+for review unless they were already reviewed in the recent past?")
+
 
 
 ;;;; Utilities ================================================================
@@ -221,6 +254,47 @@ random noise is adapted from Mnemosyne."
       (setq i (1+ i))))
   list)
     
+
+(defun time-to-inactive-org-timestamp (time)
+  (format-time-string 
+   (concat "[" (substring (cdr org-time-stamp-formats) 1 -1) "]")
+   time))
+
+
+
+(defmacro with-hidden-cloze-text (&rest body)
+  `(progn
+     (org-drill-hide-clozed-text)
+     (unwind-protect
+         (progn
+           ,@body)
+       (org-drill-unhide-clozed-text))))
+
+
+(defun org-drill-days-since-last-review ()
+  "Nil means a last review date has not yet been stored for
+the item.
+Zero means it was reviewed today.
+A positive number means it was reviewed that many days ago.
+A negative number means the date of last review is in the future --
+this should never happen."
+  (let ((datestr (org-entry-get (point) "DRILL_LAST_REVIEWED")))
+    (when datestr
+      (- (time-to-days (current-time))
+         (time-to-days (apply 'encode-time
+                              (org-parse-time-string datestr)))))))
+
+
+(defun org-drill-hours-since-last-review ()
+  "Like `org-drill-days-since-last-review', but return value is
+in hours rather than days."
+  (let ((datestr (org-entry-get (point) "DRILL_LAST_REVIEWED")))
+    (when datestr
+      (floor
+       (/ (- (time-to-seconds (current-time))
+             (time-to-seconds (apply 'encode-time
+                                     (org-parse-time-string datestr))))
+          (* 60 60))))))
 
 
 (defun org-drill-entry-p ()
@@ -258,14 +332,21 @@ drill entry."
 
 
 (defun org-drill-entry-due-p ()
-  (let ((item-time (org-get-scheduled-time (point))))
-    (and (org-drill-entry-p)
-         (or (not (eql 'skip org-drill-leech-method))
-             (not (org-drill-entry-leech-p)))
-         (or (null item-time)
-             (not (minusp               ; scheduled for today/in future
-                   (- (time-to-days (current-time))
-                      (time-to-days item-time))))))))
+  (cond
+   (*org-drill-cram-mode*
+    (let ((hours (org-drill-hours-since-last-review)))
+      (and (org-drill-entry-p)
+           (or (null hours)
+               (>= hours org-drill-cram-hours)))))
+   (t
+    (let ((item-time (org-get-scheduled-time (point))))
+      (and (org-drill-entry-p)
+           (or (not (eql 'skip org-drill-leech-method))
+               (not (org-drill-entry-leech-p)))
+           (or (null item-time)
+               (not (minusp             ; scheduled for today/in future
+                     (- (time-to-days (current-time))
+                        (time-to-days item-time))))))))))
 
 
 (defun org-drill-entry-new-p ()
@@ -447,8 +528,17 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
             (org-set-property "DRILL_FAILURE_COUNT"
                               (format "%d" (1+ failures)))
             (if (> (1+ failures) org-drill-leech-failure-threshold)
-                (org-toggle-tag "leech" 'on)))))
+                (org-toggle-tag "leech" 'on))))
+         (t
+          (let ((scheduled-time (org-get-scheduled-time (point))))
+            (when scheduled-time
+              (message "Next review in %d days"
+                       (- (time-to-days scheduled-time)
+                          (time-to-days (current-time))))
+              (sit-for 0.5)))))
         (org-set-property "DRILL_LAST_QUALITY" (format "%d" quality))
+        (org-set-property "DRILL_LAST_REVIEWED"
+                          (time-to-inactive-org-timestamp (current-time)))
         quality))
      ((= ch ?e)
       'edit)
@@ -485,10 +575,13 @@ the current topic."
               (apply 'format
                      (first fmt-and-args)
                      (rest fmt-and-args))
-            (concat "Press any key to see the answer, "
+            (concat "Press key for answer, "
                     "e=edit, t=tags, s=skip, q=quit."))))
     (setq prompt
-          (format "%s %s %s %s"
+          (format "%s %s %s %s %s"
+                  (propertize
+                   (number-to-string (length *org-drill-done-entries*))
+                   'face `(:foreground ,org-drill-done-count-color))
                   (propertize
                    (number-to-string (+ (length *org-drill-again-entries*)
                                         (length *org-drill-failed-entries*)))
@@ -532,24 +625,28 @@ Consider reformulating the item to make it easier to remember.\n"
 
 
 (defun org-drill-hide-clozed-text ()
-  (let ((ovl nil))
-    (save-excursion
-      (while (re-search-forward org-drill-cloze-regexp nil t)
-        ;; Don't hide org links, partly because they might contain inline
-        ;; images which we want to keep visible
-        (unless (org-pos-in-regexp (match-beginning 0)
-                                   org-bracket-link-regexp 1)
-          (setf ovl (make-overlay (match-beginning 0) (match-end 0)))
-          (overlay-put ovl 'category
-                       'org-drill-cloze-overlay-defaults)
-          (when (find ?| (match-string 0))
-            (overlay-put ovl
-                         'display
-                         (format "[...%s]"
-                                 (substring-no-properties
-                                  (match-string 0)
-                                  (1+ (position ?| (match-string 0)))
-                                  (1- (length (match-string 0))))))))))))
+  (save-excursion
+    (while (re-search-forward org-drill-cloze-regexp nil t)
+      ;; Don't hide org links, partly because they might contain inline
+      ;; images which we want to keep visible
+      (unless (org-pos-in-regexp (match-beginning 0)
+                                 org-bracket-link-regexp 1)
+        (org-drill-hide-matched-cloze-text)))))
+
+
+(defun org-drill-hide-matched-cloze-text ()
+  "Hide the current match with a 'cloze' visual overlay."
+  (let ((ovl (make-overlay (match-beginning 0) (match-end 0))))
+    (overlay-put ovl 'category
+                 'org-drill-cloze-overlay-defaults)
+    (when (find ?| (match-string 0))
+      (overlay-put ovl
+                   'display
+                   (format "[...%s]"
+                           (substring-no-properties
+                            (match-string 0)
+                            (1+ (position ?| (match-string 0)))
+                            (1- (length (match-string 0)))))))))
 
 
 (defun org-drill-unhide-clozed-text ()
@@ -570,82 +667,112 @@ Consider reformulating the item to make it easier to remember.\n"
 ;; recall, nil if they chose to quit.
 
 (defun org-drill-present-simple-card ()
-  (org-drill-hide-all-subheadings-except nil)
-  (org-display-inline-images t)
-  (org-cycle-hide-drawers 'all)
-  (prog1 (org-drill-presentation-prompt)
-    (org-show-subtree)))
+  (with-hidden-cloze-text 
+   (org-drill-hide-all-subheadings-except nil)
+   (org-display-inline-images t)
+   (org-cycle-hide-drawers 'all)
+   (prog1 (org-drill-presentation-prompt)
+     (org-show-subtree))))
 
 
 (defun org-drill-present-two-sided-card ()
-  (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
-    (when drill-sections
-      (save-excursion
-        (goto-char (nth (random (min 2 (length drill-sections)))
-                        drill-sections))
-        (org-show-subtree)))
-    (org-display-inline-images t)
-    (org-cycle-hide-drawers 'all)
-    (prog1
-        (org-drill-presentation-prompt)
-      (org-show-subtree))))
+  (with-hidden-cloze-text 
+   (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
+     (when drill-sections
+       (save-excursion
+         (goto-char (nth (random (min 2 (length drill-sections)))
+                         drill-sections))
+         (org-show-subtree)))
+     (org-display-inline-images t)
+     (org-cycle-hide-drawers 'all)
+     (prog1
+         (org-drill-presentation-prompt)
+       (org-show-subtree)))))
 
 
 
 (defun org-drill-present-multi-sided-card ()
-  (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
-    (when drill-sections
+  (with-hidden-cloze-text 
+   (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
+     (when drill-sections
+       (save-excursion
+         (goto-char (nth (random (length drill-sections)) drill-sections))
+         (org-show-subtree)))
+     (org-display-inline-images t)    
+     (org-cycle-hide-drawers 'all)
+     (prog1
+         (org-drill-presentation-prompt)
+       (org-show-subtree)))))
+
+
+(defun org-drill-present-multicloze ()
+  (let ((item-end nil)
+        (match-count 0)
+        (body-start (or (cdr (org-get-property-block))
+                        (point))))
+    (org-drill-hide-all-subheadings-except nil)
+    (save-excursion
+      (outline-next-heading)
+      (setq item-end (point)))
+    (save-excursion
+      (goto-char body-start)
+      (while (re-search-forward org-drill-cloze-regexp item-end t)
+        (incf match-count)))
+    (when (plusp match-count)
       (save-excursion
-        (goto-char (nth (random (length drill-sections)) drill-sections))
-        (org-show-subtree)))
-    (org-display-inline-images t)    
+        (goto-char body-start)
+        (re-search-forward org-drill-cloze-regexp
+                           item-end t (1+ (random match-count)))
+        (org-drill-hide-matched-cloze-text)))
+    (org-display-inline-images t)
     (org-cycle-hide-drawers 'all)
-    (prog1
-        (org-drill-presentation-prompt)
-      (org-show-subtree))))
+    (prog1 (org-drill-presentation-prompt)
+      (org-show-subtree)
+      (org-drill-unhide-clozed-text))))
 
-
-
+  
 (defun org-drill-present-spanish-verb ()
   (let ((prompt nil)
         (reveal-headings nil))
-    (case (random 6)
-      (0
-       (org-drill-hide-all-subheadings-except '("Infinitive"))
-       (setq prompt
-             (concat "Translate this Spanish verb, and conjugate it "
-                     "for the *present* tense.")
-             reveal-headings '("English" "Present Tense" "Notes")))
-      (1
-       (org-drill-hide-all-subheadings-except '("English"))
-       (setq prompt (concat "For the *present* tense, conjugate the "
-                            "Spanish translation of this English verb.")
-             reveal-headings '("Infinitive" "Present Tense" "Notes")))
-      (2
-       (org-drill-hide-all-subheadings-except '("Infinitive"))
-       (setq prompt (concat "Translate this Spanish verb, and "
-                            "conjugate it for the *past* tense.")
-             reveal-headings '("English" "Past Tense" "Notes")))
-      (3
-       (org-drill-hide-all-subheadings-except '("English"))
-       (setq prompt (concat "For the *past* tense, conjugate the "
-                            "Spanish translation of this English verb.")
-             reveal-headings '("Infinitive" "Past Tense" "Notes")))
-      (4
-       (org-drill-hide-all-subheadings-except '("Infinitive"))
-       (setq prompt (concat "Translate this Spanish verb, and "
-                            "conjugate it for the *future perfect* tense.")
-             reveal-headings '("English" "Future Perfect Tense" "Notes")))
-      (5
-       (org-drill-hide-all-subheadings-except '("English"))
-       (setq prompt (concat "For the *future perfect* tense, conjugate the "
-                            "Spanish translation of this English verb.")
-             reveal-headings '("Infinitive" "Future Perfect Tense" "Notes"))))
-    (org-cycle-hide-drawers 'all)
-    (prog1
-        (org-drill-presentation-prompt prompt)
-      (org-drill-hide-all-subheadings-except reveal-headings))))
-  
+    (with-hidden-cloze-text 
+     (case (random 6)
+       (0
+        (org-drill-hide-all-subheadings-except '("Infinitive"))
+        (setq prompt
+              (concat "Translate this Spanish verb, and conjugate it "
+                      "for the *present* tense.")
+              reveal-headings '("English" "Present Tense" "Notes")))
+       (1
+        (org-drill-hide-all-subheadings-except '("English"))
+        (setq prompt (concat "For the *present* tense, conjugate the "
+                             "Spanish translation of this English verb.")
+              reveal-headings '("Infinitive" "Present Tense" "Notes")))
+       (2
+        (org-drill-hide-all-subheadings-except '("Infinitive"))
+        (setq prompt (concat "Translate this Spanish verb, and "
+                             "conjugate it for the *past* tense.")
+              reveal-headings '("English" "Past Tense" "Notes")))
+       (3
+        (org-drill-hide-all-subheadings-except '("English"))
+        (setq prompt (concat "For the *past* tense, conjugate the "
+                             "Spanish translation of this English verb.")
+              reveal-headings '("Infinitive" "Past Tense" "Notes")))
+       (4
+        (org-drill-hide-all-subheadings-except '("Infinitive"))
+        (setq prompt (concat "Translate this Spanish verb, and "
+                             "conjugate it for the *future perfect* tense.")
+              reveal-headings '("English" "Future Perfect Tense" "Notes")))
+       (5
+        (org-drill-hide-all-subheadings-except '("English"))
+        (setq prompt (concat "For the *future perfect* tense, conjugate the "
+                             "Spanish translation of this English verb.")
+              reveal-headings '("Infinitive" "Future Perfect Tense" "Notes"))))
+     (org-cycle-hide-drawers 'all)
+     (prog1
+         (org-drill-presentation-prompt prompt)
+       (org-drill-hide-all-subheadings-except reveal-headings)))))
+
+
 
 (defun org-drill-entry ()
   "Present the current topic for interactive review, as in `org-drill'.
@@ -672,11 +799,7 @@ See `org-drill' for more details."
       (let ((presentation-fn (cdr (assoc card-type org-drill-card-type-alist))))
         (cond
          (presentation-fn
-          (org-drill-hide-clozed-text)
-          (unwind-protect
-              (progn
-                (setq cont (funcall presentation-fn)))
-            (org-drill-unhide-clozed-text)))
+          (setq cont (funcall presentation-fn)))
          (t
           (error "Unknown card type: '%s'" card-type))))
       
@@ -941,8 +1064,9 @@ agenda-with-archives
                    (cond
                     ((org-drill-entry-new-p)
                      (push (point-marker) *org-drill-new-entries*))
-                    ((<= (org-drill-entry-last-quality)
-                         org-drill-failure-quality)
+                    ((and (org-drill-entry-last-quality)
+                          (<= (org-drill-entry-last-quality)
+                              org-drill-failure-quality))
                      (push (point-marker) *org-drill-failed-entries*))
                     (t
                      (push (point-marker) *org-drill-mature-entries*)))))
@@ -990,15 +1114,21 @@ agenda-with-archives
       (org-drill-final-report)))))
 
 
+(defun org-drill-cram (&optional scope)
+  (interactive)
+  (let ((*org-drill-cram-mode* t))
+    (org-drill scope)))
+
+
 
 (add-hook 'org-mode-hook
           (lambda ()
             (if org-drill-use-visible-cloze-face-p
                 (font-lock-add-keywords
                  'org-mode
-                 `((,org-drill-cloze-regexp
-                    (0 'org-drill-visible-cloze-face nil)))
+                 org-drill-cloze-keywords
                  t))))
+
 
 
 (provide 'org-drill)
