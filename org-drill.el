@@ -581,17 +581,23 @@ the current topic."
           (format "%s %s %s %s %s"
                   (propertize
                    (number-to-string (length *org-drill-done-entries*))
-                   'face `(:foreground ,org-drill-done-count-color))
+                   'face `(:foreground ,org-drill-done-count-color)
+                   'help-echo "The number of items you have reviewed this session.")
                   (propertize
                    (number-to-string (+ (length *org-drill-again-entries*)
                                         (length *org-drill-failed-entries*)))
-                   'face `(:foreground ,org-drill-failed-count-color))
+                   'face `(:foreground ,org-drill-failed-count-color)
+                   'help-echo (concat "The number of items that you failed, "
+                                      "and need to review again."))
                   (propertize
                    (number-to-string (length *org-drill-mature-entries*))
-                   'face `(:foreground ,org-drill-mature-count-color))
+                   'face `(:foreground ,org-drill-mature-count-color)
+                   'help-echo "The number of old items due for review.")
                   (propertize
                    (number-to-string (length *org-drill-new-entries*))
-                   'face `(:foreground ,org-drill-new-count-color))
+                   'face `(:foreground ,org-drill-new-count-color)
+                   'help-echo (concat "The number of new items that you "
+                                      "have never reviewed."))
                   prompt))
     (if (and (eql 'warn org-drill-leech-method)
              (org-drill-entry-leech-p))
@@ -1115,6 +1121,10 @@ agenda-with-archives
 
 
 (defun org-drill-cram (&optional scope)
+  "Run an interactive drill session in 'cram mode'. In cram mode,
+all drill items are considered to be due for review, unless they
+have been reviewed within the last `org-drill-cram-hours'
+hours."
   (interactive)
   (let ((*org-drill-cram-mode* t))
     (org-drill scope)))

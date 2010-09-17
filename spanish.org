@@ -39,7 +39,7 @@ What is your name? (informal)
 llamar = to be named
 
 
-** Grammar rules
+** Grammar rules 1
 
 # More simple cards -- here the question and answer are produced purely using
 # cloze deletion of test in [square brackets], without the need to hide any
@@ -55,12 +55,24 @@ llamar = to be named
 
 *** Grammar Rule                                     :drill:
 
-To make the plural of an adjective ending in [a stressed vowel or a consonant 
-other than -z], add /-es/.
+To form the plural of a noun ending in a consonant, add [-es] to the end.
 
 *** Grammar Rule                                     :drill:
 
-To form an adverb from an adjective, add [-mente] to the [feminine|gender] 
+To make the plural of an adjective ending in [a stressed vowel or a consonant 
+other than -z], add /-es/.
+
+** Grammar rules 2
+
+# An example of a 'multicloze' card. One of the areas marked with square
+# brackets will be hidden (chosen at random), the others will remain visible.
+
+*** Grammar Rule                                     :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: multicloze
+    :END:
+
+To form [an adverb] from an adjective, add [-mente] to the [feminine|gender] 
 form of the adjective.
 
 ** Vocabulary

@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Org-Drill</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2010-09-04 17:22:25 NZST"/>
+<meta name="generated" content="2010-09-17 10:05:27 "/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -79,28 +79,30 @@ lang="en" xml:lang="en">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#sec-1">1 Synopsis </a></li>
-<li><a href="#sec-2">2 Installation and Customisation </a></li>
-<li><a href="#sec-3">3 Demonstration </a></li>
-<li><a href="#sec-4">4 Writing the questions </a>
+<li><a href="#sec-1">Synopsis </a></li>
+<li><a href="#sec-2">Installation and Customisation </a></li>
+<li><a href="#sec-3">Demonstration </a></li>
+<li><a href="#sec-4">Writing the questions </a>
 <ul>
-<li><a href="#sec-4_1">4.1 Simple topics </a></li>
-<li><a href="#sec-4_2">4.2 Cloze deletion </a></li>
-<li><a href="#sec-4_3">4.3 Two-sided cards </a></li>
-<li><a href="#sec-4_4">4.4 Multi-sided cards </a></li>
-<li><a href="#sec-4_5">4.5 User-defined topic types </a></li>
+<li><a href="#sec-4_1">Simple topics </a></li>
+<li><a href="#sec-4_2">Cloze deletion </a></li>
+<li><a href="#sec-4_3">Two-sided cards </a></li>
+<li><a href="#sec-4_4">Multi-sided cards </a></li>
+<li><a href="#sec-4_5">Multi-cloze cards </a></li>
+<li><a href="#sec-4_6">User-defined topic types </a></li>
 </ul>
 </li>
-<li><a href="#sec-5">5 Running the drill session </a></li>
-<li><a href="#sec-6">6 Leeches </a></li>
-<li><a href="#sec-7">7 Incremental reading </a></li>
-<li><a href="#sec-8">8 Still to do </a></li>
+<li><a href="#sec-5">Running the drill session </a></li>
+<li><a href="#sec-6">Leeches </a></li>
+<li><a href="#sec-7">Cram mode </a></li>
+<li><a href="#sec-8">Incremental reading </a></li>
+<li><a href="#sec-9">Still to do </a></li>
 </ul>
 </div>
 </div>
 
 <div id="outline-container-1" class="outline-2">
-<h2 id="sec-1"><span class="section-number-2">1</span> Synopsis </h2>
+<h2 id="sec-1">Synopsis </h2>
 <div class="outline-text-2" id="text-1">
 
 
@@ -142,7 +144,7 @@ that use it, see:
 </div>
 
 <div id="outline-container-2" class="outline-2">
-<h2 id="sec-2"><span class="section-number-2">2</span> Installation and Customisation </h2>
+<h2 id="sec-2">Installation and Customisation </h2>
 <div class="outline-text-2" id="text-2">
 
 
@@ -232,7 +234,7 @@ your <code>.emacs</code>:
 </div>
 
 <div id="outline-container-3" class="outline-2">
-<h2 id="sec-3"><span class="section-number-2">3</span> Demonstration </h2>
+<h2 id="sec-3">Demonstration </h2>
 <div class="outline-text-2" id="text-3">
 
 
@@ -251,7 +253,7 @@ drill topics are written.
 </div>
 
 <div id="outline-container-4" class="outline-2">
-<h2 id="sec-4"><span class="section-number-2">4</span> Writing the questions </h2>
+<h2 id="sec-4">Writing the questions </h2>
 <div class="outline-text-2" id="text-4">
 
 
@@ -282,7 +284,7 @@ recall purposes.
 </div>
 
 <div id="outline-container-4_1" class="outline-3">
-<h3 id="sec-4_1"><span class="section-number-3">4.1</span> Simple topics </h3>
+<h3 id="sec-4_1">Simple topics </h3>
 <div class="outline-text-3" id="text-4_1">
 
 
@@ -314,17 +316,18 @@ be visible, but the contents of the subheading ("The Answer") will be hidden.
 </div>
 
 <div id="outline-container-4_2" class="outline-3">
-<h3 id="sec-4_2"><span class="section-number-3">4.2</span> Cloze deletion </h3>
+<h3 id="sec-4_2">Cloze deletion </h3>
 <div class="outline-text-3" id="text-4_2">
 
 
 <p>
 Cloze deletion can be used in any drill topic regardless of whether it is
-otherwise 'simple', or one of the specialised topic types discussed below. To
-use cloze deletion, part of the body of the topic is marked as <i>cloze text</i> by
-surrounding it with single square brackets, [like so]. When the topic is
-presented for review, the text within square brackets will be obscured. The
-text is then revealed after the user presses a key. For example:
+otherwise 'simple', or is one of the specialised topic types discussed
+below. To use cloze deletion, one or more parts of the body of the topic is
+marked as <i>cloze text</i> by surrounding it with single square brackets, [like
+so]. When the topic is presented for review, the text within square brackets
+will be obscured. The text is then revealed after the user presses a key. For
+example:
 </p>
 
 
@@ -384,7 +387,7 @@ and <font style="background-color: blue;" color="cyan">
 </div>
 
 <div id="outline-container-4_3" class="outline-3">
-<h3 id="sec-4_3"><span class="section-number-3">4.3</span> Two-sided cards </h3>
+<h3 id="sec-4_3">Two-sided cards </h3>
 <div class="outline-text-3" id="text-4_3">
 
 
@@ -441,7 +444,7 @@ not one of the first two 'sides' of the topic.
 </div>
 
 <div id="outline-container-4_4" class="outline-3">
-<h3 id="sec-4_4"><span class="section-number-3">4.4</span> Multi-sided cards </h3>
+<h3 id="sec-4_4">Multi-sided cards </h3>
 <div class="outline-text-3" id="text-4_4">
 
 
@@ -476,14 +479,113 @@ the table
 The user will be shown the main text and either 'la mujer', <i>or</i> 'the woman',
 <i>or</i> a picture of a table.
 </p>
-
 </div>
 
 </div>
 
 <div id="outline-container-4_5" class="outline-3">
-<h3 id="sec-4_5"><span class="section-number-3">4.5</span> User-defined topic types </h3>
+<h3 id="sec-4_5">Multi-cloze cards </h3>
 <div class="outline-text-3" id="text-4_5">
+
+
+<p>
+Often, you will wish to create cards out of sentences that express several
+facts, such as the following:
+</p>
+<blockquote>
+
+<p>The capital city of New Zealand is Wellington, which is located in the
+South Island and has a population of about 400,000.
+</p>
+</blockquote>
+
+
+<p>
+There is more than one fact in this statement &ndash; you could create a single
+'simple' card with all the facts marked as cloze text, like so:
+</p>
+<blockquote>
+
+<p>The capital city of [New Zealand] is [Wellington], which is located in 
+[the South Island] and has a population of about [400,000].
+</p>
+</blockquote>
+
+
+<p>
+But this card will be difficult to remember. If you get just one of the 4
+hidden facts wrong, you will fail the card. A card like this is likely to
+become a <a href="#sec-6">leech</a>.
+</p>
+<p>
+A better way to express all these facts using 'simple' cards is to create
+several cards, with one fact per card. You might end up with something
+like this:
+</p>
+
+
+
+<pre class="example">* Fact
+The capital city of [New Zealand] is Wellington, which has a population of
+about 400,000.
+
+* Fact
+The capital city of New Zealand is [Wellington], which has a population of
+about 400,000.
+
+* Fact
+The capital city of New Zealand is Wellington, which has a population of
+about [400,000].
+
+* Fact
+The capital city of [New Zealand] is Wellington, which is located in the
+the South Island.
+
+* Fact
+The capital city of New Zealand is [Wellington], which is located in 
+the South Island.
+
+* Fact
+The capital city of New Zealand is Wellington, which is located in 
+[the South Island].
+</pre>
+
+
+
+<p>
+However, this is really cumbersome. The 'multicloze' card type exists for this
+situation. Multicloze cards behave like 'simple' cards, except that when there
+is more than one area marked as cloze text, only one of the marked areas will
+be hidden during review &ndash; the others all remain visible. The hidden text area
+is chosen randomly at each review.
+</p>
+<p>
+So, for the above example, we can actually use the original 'bad' simple card,
+but change its card type to 'multicloze'. Each time the card is presented for
+review, one of 'New Zealand', 'Wellington', 'the South Island' or '400,000'
+will be hidden.
+</p>
+
+
+
+<pre class="example">* Fact
+  :PROPERTIES:
+  :DRILL_CARD_TYPE: multicloze
+  :END:
+
+The capital city of [New Zealand] is [Wellington], which is located in 
+[the South Island] and has a population of about [400,000].
+</pre>
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-4_6" class="outline-3">
+<h3 id="sec-4_6">User-defined topic types </h3>
+<div class="outline-text-3" id="text-4_6">
 
 
 <p>
@@ -504,7 +606,7 @@ See the file <a href="spanish.html">spanish.org</a> for a full set of example ma
 </div>
 
 <div id="outline-container-5" class="outline-2">
-<h2 id="sec-5"><span class="section-number-2">5</span> Running the drill session </h2>
+<h2 id="sec-5">Running the drill session </h2>
 <div class="outline-text-2" id="text-5">
 
 
@@ -564,8 +666,9 @@ numbers is (taken from <code>org-learn</code>):
 <p>
 You can press '?'  at the prompt if you have trouble remembering what the
 numbers 0&ndash;5 signify. At any time you can press 'q' to finish the drill early
-(your progress will be saved), or 'e' to finish the drill and jump to the
-current topic for editing (your progress up to that point will be saved).
+(your progress will be saved), 's' to skip the current item without viewing the
+answer, or 'e' to finish the drill and jump to the current topic for editing
+(your progress up to that point will be saved).
 </p>
 
 </div>
@@ -573,9 +676,8 @@ current topic for editing (your progress up to that point will be saved).
 </div>
 
 <div id="outline-container-6" class="outline-2">
-<h2 id="sec-6"><span class="section-number-2">6</span> Leeches </h2>
+<h2 id="sec-6"><a name="leeches" id="leeches"></a>Leeches </h2>
 <div class="outline-text-2" id="text-6">
-
 
 
 <p>
@@ -628,8 +730,29 @@ See <a href="http://www.supermemo.com/help/leech.htm">the SuperMemo website</a> 
 </div>
 
 <div id="outline-container-7" class="outline-2">
-<h2 id="sec-7"><span class="section-number-2">7</span> Incremental reading </h2>
+<h2 id="sec-7">Cram mode </h2>
 <div class="outline-text-2" id="text-7">
+
+
+
+<p>
+There are some situations, such as before an exam, where you will want to
+revise all of your cards regardless of when they are next due for review.
+</p>
+<p>
+To do this, run a <i>cram session</i> with the <code>org-drill-cram</code> command (<code>M-x org-drill-cram RET</code>). This works the same as a normal drill session, except
+that all items are considered due for review unless you reviewed them within
+the last 12 hours (you can change the number of hours by customising the
+variable <code>org-drill-cram-hours</code>).
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-8" class="outline-2">
+<h2 id="sec-8">Incremental reading </h2>
+<div class="outline-text-2" id="text-8">
 
 
 
@@ -651,8 +774,8 @@ Another important component of incremental reading is the ability to save your
 exact place in a document, so you can read it <i>incrementally</i> rather than all
 at once. There is a large variety of bookmarking packages for emacs which
 provide advanced bookmarking functionality: see the <a href="http://www.emacswiki.org/emacs/BookMarks">Emacs Wiki</a> for details.
-Bookmarking exact webpage locations in an external browser is a bit more
-difficult. For Firefox, the addon works well.
+Bookmarking exact webpage locations in an external browser seems to be a bit
+more difficult. For Firefox, the <a href="http://www.wired-marker.org/">Wired Marker</a> addon works well.
 </p>
 <p>
 An example of using Org-Drill for incremental reading is given below. First,
@@ -739,7 +862,7 @@ vaccine.</font>
 
 
 <p>
-Then you press the button you created when setting up <code>org=protocol</code>, which is
+Then you press the button you created when setting up <code>org-protocol</code>, which is
 configured to activate the capture template "w: Capture web snippet". The
 selected text will be sent to Emacs, turned into a new fact using the template,
 and filed away for your later attention.
@@ -751,9 +874,9 @@ multiple items when you edit it later in Emacs.)
 </p>
 <p>
 Once you have had enough of reading the article, save your place, then go to
-your "fact" file in Emacs. You should see that all the pieces of text you
-selected have been turned into drill items. Continuing the above example, you
-would see something like:
+your "fact" file in Emacs. You should see that each piece of text you selected
+has been turned into a drill item. Continuing the above example, you would see
+something like:
 </p>
 
 
@@ -789,19 +912,15 @@ or give it different tags or properties, for example.
 
 </div>
 
-<div id="outline-container-8" class="outline-2">
-<h2 id="sec-8"><span class="section-number-2">8</span> Still to do </h2>
-<div class="outline-text-2" id="text-8">
+<div id="outline-container-9" class="outline-2">
+<h2 id="sec-9">Still to do </h2>
+<div class="outline-text-2" id="text-9">
 
 
 <ul>
 <li>
 <code>org-drill-question-tag</code> should use a tag match string, rather than a
 single tag? Can use <code>org-make-tag-matcher</code>.
-</li>
-<li>
-progress indicator during drill session: cumulative time, time spent thinking
-about this card
 </li>
 <li>
 perhaps take account of item priorities, showing high priority items first
@@ -812,7 +931,7 @@ perhaps take account of item priorities, showing high priority items first
 <div id="postamble">
 <p class="author"> Author: Paul Sexton
 </p>
-<p class="date"> Date: 2010-09-04 17:22:25 NZST</p>
+<p class="date"> Date: 2010-09-17 10:05:27 </p>
 <p class="creator">HTML generated by org-mode 7.01trans in emacs 23</p>
 </div>
 </div>

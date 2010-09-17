@@ -1,5 +1,6 @@
 # -*- mode: org; coding: utf-8 -*-
 #+STARTUP: showall
+#+OPTIONS: num:nil
 #+TITLE: Org-Drill
 #+AUTHOR: Paul Sexton
 
@@ -134,11 +135,12 @@ be visible, but the contents of the subheading ("The Answer") will be hidden.
 ** Cloze deletion
 
 Cloze deletion can be used in any drill topic regardless of whether it is
-otherwise 'simple', or one of the specialised topic types discussed below. To
-use cloze deletion, part of the body of the topic is marked as /cloze text/ by
-surrounding it with single square brackets, [like so]. When the topic is
-presented for review, the text within square brackets will be obscured. The
-text is then revealed after the user presses a key. For example:
+otherwise 'simple', or is one of the specialised topic types discussed
+below. To use cloze deletion, one or more parts of the body of the topic is
+marked as /cloze text/ by surrounding it with single square brackets, [like
+so]. When the topic is presented for review, the text within square brackets
+will be obscured. The text is then revealed after the user presses a key. For
+example:
 
 #+BEGIN_EXAMPLE
 * Item                                   :drill:
@@ -244,6 +246,78 @@ the table
 The user will be shown the main text and either 'la mujer', /or/ 'the woman',
 /or/ a picture of a table.
 
+** Multi-cloze cards
+
+Often, you will wish to create cards out of sentences that express several
+facts, such as the following:
+
+#+BEGIN_QUOTE
+The capital city of New Zealand is Wellington, which is located in the
+South Island and has a population of about 400,000.
+#+END_QUOTE
+
+There is more than one fact in this statement -- you could create a single
+'simple' card with all the facts marked as cloze text, like so:
+
+#+BEGIN_QUOTE
+The capital city of [New Zealand] is [Wellington], which is located in 
+[the South Island] and has a population of about [400,000].
+#+END_QUOTE
+
+But this card will be difficult to remember. If you get just one of the 4
+hidden facts wrong, you will fail the card. A card like this is likely to
+become a [[leeches][leech]].
+
+A better way to express all these facts using 'simple' cards is to create
+several cards, with one fact per card. You might end up with something
+like this:
+
+#+BEGIN_EXAMPLE
+* Fact
+The capital city of [New Zealand] is Wellington, which has a population of
+about 400,000.
+
+* Fact
+The capital city of New Zealand is [Wellington], which has a population of
+about 400,000.
+
+* Fact
+The capital city of New Zealand is Wellington, which has a population of
+about [400,000].
+
+* Fact
+The capital city of [New Zealand] is Wellington, which is located in the
+the South Island.
+
+* Fact
+The capital city of New Zealand is [Wellington], which is located in 
+the South Island.
+
+* Fact
+The capital city of New Zealand is Wellington, which is located in 
+[the South Island].
+#+END_EXAMPLE
+
+However, this is really cumbersome. The 'multicloze' card type exists for this
+situation. Multicloze cards behave like 'simple' cards, except that when there
+is more than one area marked as cloze text, only one of the marked areas will
+be hidden during review -- the others all remain visible. The hidden text area
+is chosen randomly at each review.
+
+So, for the above example, we can actually use the original 'bad' simple card,
+but change its card type to 'multicloze'. Each time the card is presented for
+review, one of 'New Zealand', 'Wellington', 'the South Island' or '400,000'
+will be hidden.
+
+#+BEGIN_EXAMPLE
+* Fact
+  :PROPERTIES:
+  :DRILL_CARD_TYPE: multicloze
+  :END:
+
+The capital city of [New Zealand] is [Wellington], which is located in 
+[the South Island] and has a population of about [400,000].
+#+END_EXAMPLE
 
 ** User-defined topic types
 
@@ -289,12 +363,13 @@ numbers is (taken from =org-learn=):
 
 You can press '?'  at the prompt if you have trouble remembering what the
 numbers 0--5 signify. At any time you can press 'q' to finish the drill early
-(your progress will be saved), or 'e' to finish the drill and jump to the
-current topic for editing (your progress up to that point will be saved).
+(your progress will be saved), 's' to skip the current item without viewing the
+answer, or 'e' to finish the drill and jump to the current topic for editing
+(your progress up to that point will be saved).
 
 
 * Leeches
-
+# <<leeches>>
 
 From the Anki website, http://ichi2.net/anki/wiki/Leeches:
 
@@ -325,6 +400,19 @@ card.
 See [[http://www.supermemo.com/help/leech.htm][the SuperMemo website]] for more on leeches.
 
 
+* Cram mode
+
+
+There are some situations, such as before an exam, where you will want to
+revise all of your cards regardless of when they are next due for review.
+
+To do this, run a /cram session/ with the =org-drill-cram= command (=M-x
+org-drill-cram RET=). This works the same as a normal drill session, except
+that all items are considered due for review unless you reviewed them within
+the last 12 hours (you can change the number of hours by customising the
+variable =org-drill-cram-hours=).
+
+
 * Incremental reading
 
 
@@ -343,8 +431,8 @@ Another important component of incremental reading is the ability to save your
 exact place in a document, so you can read it /incrementally/ rather than all
 at once. There is a large variety of bookmarking packages for emacs which
 provide advanced bookmarking functionality: see the [[http://www.emacswiki.org/emacs/BookMarks][Emacs Wiki]] for details.
-Bookmarking exact webpage locations in an external browser is a bit more
-difficult. For Firefox, the addon works well.
+Bookmarking exact webpage locations in an external browser seems to be a bit
+more difficult. For Firefox, the [[http://www.wired-marker.org/][Wired Marker]] addon works well.
 
 An example of using Org-Drill for incremental reading is given below. First,
 and most importantly, we need to define a couple of =org-capture= templates for
@@ -409,7 +497,7 @@ on screening programs and vaccination, usually with Bacillus Calmette-Guérin
 vaccine.@</font>
 #+END_QUOTE
 
-Then you press the button you created when setting up =org=protocol=, which is
+Then you press the button you created when setting up =org-protocol=, which is
 configured to activate the capture template "w: Capture web snippet". The
 selected text will be sent to Emacs, turned into a new fact using the template,
 and filed away for your later attention.
@@ -419,9 +507,9 @@ item -- since it contains several important facts -- then split it up into
 multiple items when you edit it later in Emacs.)
 
 Once you have had enough of reading the article, save your place, then go to
-your "fact" file in Emacs. You should see that all the pieces of text you
-selected have been turned into drill items. Continuing the above example, you
-would see something like:
+your "fact" file in Emacs. You should see that each piece of text you selected
+has been turned into a drill item. Continuing the above example, you would see
+something like:
 
 #+BEGIN_EXAMPLE
 ** Fact: 'Tuberculosis - Wikipedia, the Free Encyclopedia'        :drill:
@@ -448,6 +536,5 @@ or give it different tags or properties, for example.
 
 - =org-drill-question-tag= should use a tag match string, rather than a
   single tag? Can use =org-make-tag-matcher=.
-- progress indicator during drill session: cumulative time, time spent thinking
-  about this card
 - perhaps take account of item priorities, showing high priority items first
+- get tooltips to work for old/new/etc counts during review?
