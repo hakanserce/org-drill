@@ -37,7 +37,7 @@
 
 
 
-(defcustom org-drill-question-tag 
+(defcustom org-drill-question-tag
   "drill"
   "Tag which topics must possess in order to be identified as review topics
 by `org-drill'."
@@ -231,12 +231,13 @@ for review unless they were already reviewed in the recent past?")
 
 
 (defmacro pop-random (place)
-  (let ((elt (gensym)))
+  (let ((idx (gensym)))
     `(if (null ,place)
          nil
-       (let ((,elt (nth (random (length ,place)) ,place)))
-         (setq ,place (remove ,elt ,place))
-         ,elt))))
+       (let ((,idx (random (length ,place))))
+         (prog1 (nth ,idx ,place)
+           (setq ,place (append (subseq ,place 0 ,idx)
+                                (subseq ,place (1+ ,idx)))))))))
 
 
 (defun shuffle-list (list)
@@ -253,10 +254,10 @@ for review unless they were already reviewed in the recent past?")
       (setf (nth j list) temp)
       (setq i (1+ i))))
   list)
-    
+
 
 (defun time-to-inactive-org-timestamp (time)
-  (format-time-string 
+  (format-time-string
    (concat "[" (substring (cdr org-time-stamp-formats) 1 -1) "]")
    time))
 
@@ -423,7 +424,7 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
       (/ (+ 100 (* (* (/ -1 b) (log (- 1 (* (/ b a ) (abs p)))))
                    (sign p)))
          100))))
-      
+
 
 (defun inter-repetition-interval-sm5 (last-interval n ef &optional of-matrix)
   (let ((of (get-optimal-factor n ef of-matrix)))
@@ -442,9 +443,9 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
                               (modify-of (get-optimal-factor n ef of-matrix)
                                          quality org-learn-fraction))
           ef next-ef)
-    
+
     (cond
-     ;; "Failed" -- reset repetitions to 0, 
+     ;; "Failed" -- reset repetitions to 0,
      ((<= quality org-drill-failure-quality)
       (list -1 1 ef of-matrix))      ; Not clear if OF matrix is supposed to be
                                      ; preserved
@@ -494,23 +495,51 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
 				  (days-to-time (nth 0 learn-data))))))))
 
 
+(defun org-drill-hypothetical-next-review-date (quality)
+  (let* ((learn-str (org-entry-get (point) "LEARN_DATA"))
+	 (learn-data (or (and learn-str
+			      (read learn-str))
+			 (copy-list initial-repetition-state)))
+	 closed-dates)
+    (setq learn-data
+          (case org-drill-spaced-repetition-algorithm
+            (sm5 (determine-next-interval-sm5 (nth 0 learn-data)
+                                              (nth 1 learn-data)
+                                              (nth 2 learn-data)
+                                              quality
+                                              (nth 3 learn-data)))
+            (sm2 (determine-next-interval-sm2 (nth 0 learn-data)
+                                              (nth 1 learn-data)
+                                              (nth 2 learn-data)
+                                              quality
+                                              (nth 3 learn-data)))))
+    (cond
+     ((not (plusp (nth 0 learn-data)))
+      0)
+     (t
+      (nth 0 learn-data)))))
+
+
 (defun org-drill-reschedule ()
   "Returns quality rating (0-5), or nil if the user quit."
   (let ((ch nil))
     (while (not (memq ch '(?q ?e ?0 ?1 ?2 ?3 ?4 ?5)))
       (setq ch (read-char-exclusive
                 (if (eq ch ??)
-                    "0-2 Means you have forgotten the item.
+                    (format "0-2 Means you have forgotten the item.
 3-5 Means you have remembered the item.
- 
-0 - Completely forgot. 
-1 - Even after seeing the answer, it still took a bit to sink in. 
-2 - After seeing the answer, you remembered it. 
-3 - It took you awhile, but you finally remembered.
-4 - After a little bit of thought you remembered.
-5 - You remembered the item really easily.
+
+0 - Completely forgot.
+1 - Even after seeing the answer, it still took a bit to sink in.
+2 - After seeing the answer, you remembered it.
+3 - It took you awhile, but you finally remembered. (+%s days)
+4 - After a little bit of thought you remembered. (+%s days)
+5 - You remembered the item really easily. (+%s days)
 
 How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
+                            (org-drill-hypothetical-next-review-date 3)
+                            (org-drill-hypothetical-next-review-date 4)
+                            (org-drill-hypothetical-next-review-date 5))
                   "How well did you do? (0-5, ?=help, e=edit, q=quit)")))
       (if (eql ch ?t)
           (org-set-tags-command)))
@@ -673,7 +702,7 @@ Consider reformulating the item to make it easier to remember.\n"
 ;; recall, nil if they chose to quit.
 
 (defun org-drill-present-simple-card ()
-  (with-hidden-cloze-text 
+  (with-hidden-cloze-text
    (org-drill-hide-all-subheadings-except nil)
    (org-display-inline-images t)
    (org-cycle-hide-drawers 'all)
@@ -682,7 +711,7 @@ Consider reformulating the item to make it easier to remember.\n"
 
 
 (defun org-drill-present-two-sided-card ()
-  (with-hidden-cloze-text 
+  (with-hidden-cloze-text
    (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
      (when drill-sections
        (save-excursion
@@ -698,13 +727,13 @@ Consider reformulating the item to make it easier to remember.\n"
 
 
 (defun org-drill-present-multi-sided-card ()
-  (with-hidden-cloze-text 
+  (with-hidden-cloze-text
    (let ((drill-sections (org-drill-hide-all-subheadings-except nil)))
      (when drill-sections
        (save-excursion
          (goto-char (nth (random (length drill-sections)) drill-sections))
          (org-show-subtree)))
-     (org-display-inline-images t)    
+     (org-display-inline-images t)
      (org-cycle-hide-drawers 'all)
      (prog1
          (org-drill-presentation-prompt)
@@ -736,11 +765,11 @@ Consider reformulating the item to make it easier to remember.\n"
       (org-show-subtree)
       (org-drill-unhide-clozed-text))))
 
-  
+
 (defun org-drill-present-spanish-verb ()
   (let ((prompt nil)
         (reveal-headings nil))
-    (with-hidden-cloze-text 
+    (with-hidden-cloze-text
      (case (random 6)
        (0
         (org-drill-hide-all-subheadings-except '("Infinitive"))
@@ -798,17 +827,17 @@ See `org-drill' for more details."
   (let ((card-type (org-entry-get (point) "DRILL_CARD_TYPE"))
         (cont nil))
     (save-restriction
-      (org-narrow-to-subtree) 
+      (org-narrow-to-subtree)
       (org-show-subtree)
       (org-cycle-hide-drawers 'all)
-      
+
       (let ((presentation-fn (cdr (assoc card-type org-drill-card-type-alist))))
         (cond
          (presentation-fn
           (setq cont (funcall presentation-fn)))
          (t
           (error "Unknown card type: '%s'" card-type))))
-      
+
       (cond
        ((not cont)
         (message "Quit")
@@ -964,9 +993,10 @@ Session duration %s
 Recall of reviewed items:
  Excellent (5):     %3d%%   |   Near miss (2):     %3d%%
  Good (4):          %3d%%   |   Failure (1):       %3d%%
- Hard (3):          %3d%%   |   Total failure (0): %3d%% 
+ Hard (3):          %3d%%   |   Total failure (0): %3d%%
 
-Session finished. Press a key to continue..." 
+You successfully recalled %d%% of reviewed items (quality > %s)
+Session finished. Press a key to continue..."
     (length *org-drill-done-entries*)
     (org-drill-pending-entry-count)
     (propertize
@@ -996,6 +1026,11 @@ Session finished. Press a key to continue..."
            (max 1 (length *org-drill-session-qualities*)))
     (round (* 100 (count 0 *org-drill-session-qualities*))
            (max 1 (length *org-drill-session-qualities*)))
+    (round (* 100 (count-if (lambda (qual)
+                              (> qual org-drill-failure-quality))
+                            *org-drill-session-qualities*))
+           (max 1 (length *org-drill-session-qualities*)))
+    org-drill-failure-quality
     )))
 
 
@@ -1041,11 +1076,7 @@ agenda-with-archives
         If this is a list, all files in the list will be scanned."
 
   (interactive)
-  (let ((entries nil)
-        (failed-entries nil)
-        (result nil)
-        (results nil)
-        (end-pos nil)
+  (let ((end-pos nil)
         (cnt 0))
     (block org-drill
       (setq *org-drill-done-entries* nil
@@ -1077,10 +1108,6 @@ agenda-with-archives
                     (t
                      (push (point-marker) *org-drill-mature-entries*)))))
                (concat "+" org-drill-question-tag) scope))
-            ;; Failed first, then random mix of old + new
-            (setq entries (append (shuffle-list *org-drill-failed-entries*)
-                                  (shuffle-list (append *org-drill-mature-entries*
-                                                        *org-drill-new-entries*))))
             (cond
              ((and (null *org-drill-new-entries*)
                    (null *org-drill-failed-entries*)
