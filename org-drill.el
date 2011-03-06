@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing with org-learn
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 1.4
+;;; Version: 1.5
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -522,11 +522,16 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
 
 (defun org-drill-reschedule ()
   "Returns quality rating (0-5), or nil if the user quit."
-  (let ((ch nil))
-    (while (not (memq ch '(?q ?e ?0 ?1 ?2 ?3 ?4 ?5)))
-      (setq ch (read-char-exclusive
-                (if (eq ch ??)
-                    (format "0-2 Means you have forgotten the item.
+  (let ((ch nil)
+        (input nil)
+        (next-review-date-3 (org-drill-hypothetical-next-review-date 3))
+        (next-review-date-4 (org-drill-hypothetical-next-review-date 4))
+        (next-review-date-5 (org-drill-hypothetical-next-review-date 5)))
+    (save-excursion
+      (while (not (memq ch '(?q ?e ?0 ?1 ?2 ?3 ?4 ?5)))
+        (setq input (read-key-sequence
+                     (if (eq ch ??)
+                         (format "0-2 Means you have forgotten the item.
 3-5 Means you have remembered the item.
 
 0 - Completely forgot.
@@ -537,12 +542,28 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
 5 - You remembered the item really easily. (+%s days)
 
 How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
-                            (org-drill-hypothetical-next-review-date 3)
-                            (org-drill-hypothetical-next-review-date 4)
-                            (org-drill-hypothetical-next-review-date 5))
-                  "How well did you do? (0-5, ?=help, e=edit, q=quit)")))
-      (if (eql ch ?t)
-          (org-set-tags-command)))
+                                 next-review-date-3
+                                 next-review-date-4
+                                 next-review-date-5)
+                       "How well did you do? (0-5, ?=help, e=edit, q=quit)")))
+        (cond
+         ((stringp input)
+          (setq ch (elt input 0)))
+         ((and (vectorp input) (symbolp (elt input 0)))
+          (case (elt input 0)
+            (up (ignore-errors (forward-line -1)))
+            (down (ignore-errors (forward-line 1)))
+            (left (ignore-errors (backward-char)))
+            (right (ignore-errors (forward-char)))
+            (prior (ignore-errors (scroll-down))) ; pgup
+            (next (ignore-errors (scroll-up)))))  ; pgdn
+         ((and (vectorp input) (listp (elt input 0))
+               (eventp (elt input 0)))
+          (case (car (elt input 0))
+            (wheel-up (ignore-errors (mwheel-scroll (elt input 0))))
+            (wheel-down (ignore-errors (mwheel-scroll (elt input 0)))))))
+        (if (eql ch ?t)
+            (org-set-tags-command))))
     (cond
      ((and (>= ch ?0) (<= ch ?5))
       (let ((quality (- ch ?0))
@@ -597,6 +618,7 @@ the current topic."
 
 (defun org-drill-presentation-prompt (&rest fmt-and-args)
   (let* ((item-start-time (current-time))
+         (input nil)
          (ch nil)
          (last-second 0)
          (prompt
@@ -637,13 +659,15 @@ Consider reformulating the item to make it easier to remember.\n"
                                   'face '(:foreground "red"))
                       prompt)))
     (while (memq ch '(nil ?t))
+      (setq ch nil)
       (while (not (input-pending-p))
         (message (concat (format-time-string
                           "%M:%S " (time-subtract
                                    (current-time) item-start-time))
                          prompt))
         (sit-for 1))
-      (setq ch (read-char-exclusive))
+      (setq input (read-key-sequence nil))
+      (if (stringp input) (setq ch (elt input 0)))
       (if (eql ch ?t)
           (org-set-tags-command)))
     (case ch
