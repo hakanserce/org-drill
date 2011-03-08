@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing with org-learn
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 1.5
+;;; Version: 1.6
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -986,7 +986,7 @@ maximum number of items."
       (unless m
         (error "Unexpectedly ran out of pending drill items"))
       (save-excursion
-        (set-buffer (marker-buffer m))
+        (switch-to-buffer (marker-buffer m))
         (goto-char m)
         (setq result (org-drill-entry))
         (cond
@@ -997,7 +997,7 @@ maximum number of items."
           (setq end-pos (point-marker))
           (return-from org-drill-entries nil))
          ((eql result 'skip)
-          nil)   ; skip this item
+          nil)                          ; skip this item
          (t
           (cond
            ((<= result org-drill-failure-quality)
