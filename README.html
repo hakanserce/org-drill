@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Org-Drill</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2010-09-17 10:05:27 "/>
+<meta name="generated" content="2011-03-25 11:53:49 "/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -21,6 +21,9 @@ lang="en" xml:lang="en">
   .target { }
   .timestamp { color: #bebebe; }
   .timestamp-kwd { color: #5f9ea0; }
+  .right  {margin-left:auto; margin-right:0px;  text-align:right;}
+  .left   {margin-left:0px;  margin-right:auto; text-align:left;}
+  .center {margin-left:auto; margin-right:auto; text-align:center;}
   p.verse { margin-left: 3% }
   pre {
 	border: 1pt solid #AEBDCC;
@@ -31,7 +34,13 @@ lang="en" xml:lang="en">
         overflow:auto;
   }
   table { border-collapse: collapse; }
-  td, th { vertical-align: top; }
+  td, th { vertical-align: top;  }
+  th.right  { text-align:center;  }
+  th.left   { text-align:center;   }
+  th.center { text-align:center; }
+  td.right  { text-align:right;  }
+  td.left   { text-align:left;   }
+  td.center { text-align:center; }
   dt { font-weight: bold; }
   div.figure { padding: 0.5em; }
   div.figure p { text-align: center; }
@@ -90,6 +99,7 @@ lang="en" xml:lang="en">
 <li><a href="#sec-4_4">Multi-sided cards </a></li>
 <li><a href="#sec-4_5">Multi-cloze cards </a></li>
 <li><a href="#sec-4_6">User-defined topic types </a></li>
+<li><a href="#sec-4_7">Comments </a></li>
 </ul>
 </li>
 <li><a href="#sec-5">Running the drill session </a></li>
@@ -136,9 +146,10 @@ that use it, see:
 <li>
 <a href="http://mnemosyne-proj.org/index.php">Mnemosyne</a>
 
-
 </li>
 </ul>
+
+
 </div>
 
 </div>
@@ -353,7 +364,7 @@ During review, the user will see:
 When the user presses a key, the text "Tallinn" will become visible.
 </p>
 <p>
-Clozed text can also contain a "hint" about the answer. If the text 
+Clozed text can also contain a "hint" about the answer. If the text
 surrounded by single square brackets contains a `|' character (vertical bar),
 all text after that character is treated as a hint, and will be visible when
 the rest of the text is hidden.
@@ -372,7 +383,7 @@ and [mast cells|cell type].
 
 <blockquote>
 
-<p>Type 1 hypersensitivity reactions are mediated by 
+<p>Type 1 hypersensitivity reactions are mediated by
 <font style="background-color: blue;" color="cyan">
 <tt>[&hellip;molecule]</tt></font>
 and <font style="background-color: blue;" color="cyan">
@@ -426,7 +437,7 @@ la mujer
 the woman
 
 ** Example sentence
-¿Quién fue esa mujer? 
+¿Quién fue esa mujer?
 Who was that woman?
 </pre>
 
@@ -451,7 +462,7 @@ not one of the first two 'sides' of the topic.
 <p>
 The <code>multisided</code> card type is similar to <code>twosided</code>, except that any
 subheading has a chance of being presented during the topic review. One
-subheading is always shown and all others are always hidden. 
+subheading is always shown and all others are always hidden.
 </p>
 
 
@@ -506,7 +517,7 @@ There is more than one fact in this statement &ndash; you could create a single
 </p>
 <blockquote>
 
-<p>The capital city of [New Zealand] is [Wellington], which is located in 
+<p>The capital city of [New Zealand] is [Wellington], which is located in
 [the South Island] and has a population of about [400,000].
 </p>
 </blockquote>
@@ -542,11 +553,11 @@ The capital city of [New Zealand] is Wellington, which is located in the
 the South Island.
 
 * Fact
-The capital city of New Zealand is [Wellington], which is located in 
+The capital city of New Zealand is [Wellington], which is located in
 the South Island.
 
 * Fact
-The capital city of New Zealand is Wellington, which is located in 
+The capital city of New Zealand is Wellington, which is located in
 [the South Island].
 </pre>
 
@@ -573,7 +584,7 @@ will be hidden.
   :DRILL_CARD_TYPE: multicloze
   :END:
 
-The capital city of [New Zealand] is [Wellington], which is located in 
+The capital city of [New Zealand] is [Wellington], which is located in
 [the South Island] and has a population of about [400,000].
 </pre>
 
@@ -598,6 +609,22 @@ function <code>org-drill-present-spanish-verb</code>, which defines the new topi
 </p>
 <p>
 See the file <a href="spanish.html">spanish.org</a> for a full set of example material.
+</p>
+</div>
+
+</div>
+
+<div id="outline-container-4_7" class="outline-3">
+<h3 id="sec-4_7">Comments </h3>
+<div class="outline-text-3" id="text-4_7">
+
+
+<p>
+In org mode, comment lines start with '#'. The rest of the line is ignored by
+Org (apart from some special cases). You may sometimes want to put material in
+comments which you do not want to see when you are being tested on the
+item. For this reason, all comments are rendered invisible while items are
+being tested.
 </p>
 
 </div>
@@ -637,28 +664,29 @@ with them.
 <dt>(file1 file2 &hellip;)</dt><dd>
 A list of filenames. All files in the list will be
 scanned.
-
 </dd>
 </dl>
 
-<p>During a drill session, you will be presented with each item, then asked to
+
+<p>
+During a drill session, you will be presented with each item, then asked to
 rate your recall of it by pressing a key between 0 and 5. The meaning of these
 numbers is (taken from <code>org-learn</code>):
 </p>
 <table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 <caption></caption>
-<colgroup><col align="right" /><col align="left" /><col align="left" />
+<colgroup><col class="right" /><col class="left" /><col class="left" />
 </colgroup>
 <thead>
-<tr><th scope="col">Quality</th><th scope="col">SuperMemo label</th><th scope="col">Meaning</th></tr>
+<tr><th scope="col" class="right">Quality</th><th scope="col" class="left">SuperMemo label</th><th scope="col" class="left">Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td>0</td><td>NULL</td><td>You have forgotten this card completely.</td></tr>
-<tr><td>1</td><td>BAD</td><td>Wrong answer.</td></tr>
-<tr><td>2</td><td>FAIL</td><td>Barely correct, the interval was too long.</td></tr>
-<tr><td>3</td><td>PASS</td><td>Correct answer, but with much effort.</td></tr>
-<tr><td>4</td><td>GOOD</td><td>Correct answer, with a little thought.</td></tr>
-<tr><td>5</td><td>BRIGHT</td><td>Correct answer, effortless.</td></tr>
+<tr><td class="right">0</td><td class="left">NULL</td><td class="left">You have forgotten this card completely.</td></tr>
+<tr><td class="right">1</td><td class="left">BAD</td><td class="left">Wrong answer.</td></tr>
+<tr><td class="right">2</td><td class="left">FAIL</td><td class="left">Barely correct, the interval was too long.</td></tr>
+<tr><td class="right">3</td><td class="left">PASS</td><td class="left">Correct answer, but with much effort.</td></tr>
+<tr><td class="right">4</td><td class="left">GOOD</td><td class="left">Correct answer, with a little thought.</td></tr>
+<tr><td class="right">5</td><td class="left">BRIGHT</td><td class="left">Correct answer, effortless.</td></tr>
 </tbody>
 </table>
 
@@ -713,13 +741,14 @@ Leech items are not included in drill sessions.
 <dt>warn</dt><dd>
 Leech items are still included in drill sessions, but a warning
 message is printed when each leech item is presented.
-
 </dd>
 </dl>
 
-<p>The best way to deal with a leech is either to delete it, or reformulate it so
+
+<p>
+The best way to deal with a leech is either to delete it, or reformulate it so
 that it is easier to remember, for example by splitting it into more than one
-card. 
+card.
 </p>
 <p>
 See <a href="http://www.supermemo.com/help/leech.htm">the SuperMemo website</a> for more on leeches.
@@ -780,7 +809,7 @@ more difficult. For Firefox, the <a href="http://www.wired-marker.org/">Wired Ma
 <p>
 An example of using Org-Drill for incremental reading is given below. First,
 and most importantly, we need to define a couple of <code>org-capture</code> templates for
-captured facts. 
+captured facts.
 </p>
 
 
@@ -821,11 +850,12 @@ Turn a region of selected text on a webpage, into a new fact which is saved
 to whichever file and heading you nominate in the template. The fact will
 contain a timestamp, and a hyperlink back to the webpage where you created
 it.
-
 </li>
 </ul>
 
-<p>For example, suppose you are reading the Wikipedia entry on tuberculosis <a href="http://en.wikipedia.org/wiki/Tuberculosis">here</a>.
+
+<p>
+For example, suppose you are reading the Wikipedia entry on tuberculosis <a href="http://en.wikipedia.org/wiki/Tuberculosis">here</a>.
 </p>
 <p>
 You read the following:
@@ -853,7 +883,7 @@ portion of the text with the mouse:
 sputum, fever, night sweats, and weight loss. Infection of other organs causes
 a wide range of symptoms. Treatment is difficult and requires long courses of
 multiple antibiotics. Antibiotic resistance is a growing problem in
-(extensively) multi-drug-resistant tuberculosis. 
+(extensively) multi-drug-resistant tuberculosis.
 <font style="background-color: yellow;">Prevention relies
 on screening programs and vaccination, usually with Bacillus Calmette-Guérin
 vaccine.</font>
@@ -905,7 +935,7 @@ usually with [Bacillus Calmette-Guérin vaccine].
 <p>
 You can of course define browser buttons that use several different "fact"
 templates, each of which might send its fact to a different file or subheading,
-or give it different tags or properties, for example. 
+or give it different tags or properties, for example.
 </p>
 
 </div>
@@ -925,14 +955,18 @@ single tag? Can use <code>org-make-tag-matcher</code>.
 <li>
 perhaps take account of item priorities, showing high priority items first
 </li>
+<li>
+get tooltips to work for old/new/etc counts during review?
+</li>
 </ul>
+
 </div>
 </div>
 <div id="postamble">
 <p class="author"> Author: Paul Sexton
 </p>
-<p class="date"> Date: 2010-09-17 10:05:27 </p>
-<p class="creator">HTML generated by org-mode 7.01trans in emacs 23</p>
+<p class="date"> Date: 2011-03-25 11:53:49 </p>
+<p class="creator">HTML generated by org-mode 7.4 in emacs 23</p>
 </div>
 </div>
 </body>

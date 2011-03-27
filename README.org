@@ -156,7 +156,7 @@ The capital city of Estonia is @<font style="background-color: blue;" color="cya
 
 When the user presses a key, the text "Tallinn" will become visible.
 
-Clozed text can also contain a "hint" about the answer. If the text 
+Clozed text can also contain a "hint" about the answer. If the text
 surrounded by single square brackets contains a `|' character (vertical bar),
 all text after that character is treated as a hint, and will be visible when
 the rest of the text is hidden.
@@ -169,7 +169,7 @@ and [mast cells|cell type].
 #+END_EXAMPLE
 
 #+BEGIN_QUOTE
-Type 1 hypersensitivity reactions are mediated by 
+Type 1 hypersensitivity reactions are mediated by
 @<font style="background-color: blue;" color="cyan">
 @<tt>[...molecule]@</tt>@</font>
 and @<font style="background-color: blue;" color="cyan">
@@ -209,7 +209,7 @@ la mujer
 the woman
 
 ** Example sentence
-¿Quién fue esa mujer? 
+¿Quién fue esa mujer?
 Who was that woman?
 #+END_EXAMPLE
 
@@ -223,7 +223,7 @@ not one of the first two 'sides' of the topic.
 
 The =multisided= card type is similar to =twosided=, except that any
 subheading has a chance of being presented during the topic review. One
-subheading is always shown and all others are always hidden. 
+subheading is always shown and all others are always hidden.
 
 #+BEGIN_EXAMPLE
 * Noun                                               :drill:
@@ -260,7 +260,7 @@ There is more than one fact in this statement -- you could create a single
 'simple' card with all the facts marked as cloze text, like so:
 
 #+BEGIN_QUOTE
-The capital city of [New Zealand] is [Wellington], which is located in 
+The capital city of [New Zealand] is [Wellington], which is located in
 [the South Island] and has a population of about [400,000].
 #+END_QUOTE
 
@@ -290,11 +290,11 @@ The capital city of [New Zealand] is Wellington, which is located in the
 the South Island.
 
 * Fact
-The capital city of New Zealand is [Wellington], which is located in 
+The capital city of New Zealand is [Wellington], which is located in
 the South Island.
 
 * Fact
-The capital city of New Zealand is Wellington, which is located in 
+The capital city of New Zealand is Wellington, which is located in
 [the South Island].
 #+END_EXAMPLE
 
@@ -315,7 +315,7 @@ will be hidden.
   :DRILL_CARD_TYPE: multicloze
   :END:
 
-The capital city of [New Zealand] is [Wellington], which is located in 
+The capital city of [New Zealand] is [Wellington], which is located in
 [the South Island] and has a population of about [400,000].
 #+END_EXAMPLE
 
@@ -329,6 +329,14 @@ function =org-drill-present-spanish-verb=, which defines the new topic type
 =spanish_verb=, used in 'spanish.org'.
 
 See the file [[file:spanish.org][spanish.org]] for a full set of example material.
+
+** Comments
+
+In org mode, comment lines start with '#'. The rest of the line is ignored by
+Org (apart from some special cases). You may sometimes want to put material in
+comments which you do not want to see when you are being tested on the
+item. For this reason, all comments are rendered invisible while items are
+being tested.
 
 
 * Running the drill session
@@ -395,7 +403,7 @@ following values:
 
 The best way to deal with a leech is either to delete it, or reformulate it so
 that it is easier to remember, for example by splitting it into more than one
-card. 
+card.
 
 See [[http://www.supermemo.com/help/leech.htm][the SuperMemo website]] for more on leeches.
 
@@ -436,7 +444,7 @@ more difficult. For Firefox, the [[http://www.wired-marker.org/][Wired Marker]] 
 
 An example of using Org-Drill for incremental reading is given below. First,
 and most importantly, we need to define a couple of =org-capture= templates for
-captured facts. 
+captured facts.
 
 #+BEGIN_EXAMPLE
 (setq org-capture-templates
@@ -491,7 +499,7 @@ The classic symptoms of tuberculosis are a chronic cough with blood-tinged
 sputum, fever, night sweats, and weight loss. Infection of other organs causes
 a wide range of symptoms. Treatment is difficult and requires long courses of
 multiple antibiotics. Antibiotic resistance is a growing problem in
-(extensively) multi-drug-resistant tuberculosis. 
+(extensively) multi-drug-resistant tuberculosis.
 @<font style="background-color: yellow;">Prevention relies
 on screening programs and vaccination, usually with Bacillus Calmette-Guérin
 vaccine.@</font>
@@ -529,7 +537,7 @@ text into a 'question' is by cloze deletion. All you need to do is surround the
 
 You can of course define browser buttons that use several different "fact"
 templates, each of which might send its fact to a different file or subheading,
-or give it different tags or properties, for example. 
+or give it different tags or properties, for example.
 
 
 * Still to do
