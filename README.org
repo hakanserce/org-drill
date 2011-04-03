@@ -51,6 +51,14 @@ buffers, also add:
 (setq org-drill-use-visible-cloze-face-p t)
 #+END_EXAMPLE
 
+Item headings may contain information that "gives away" the answer to the item,
+either in the heading text or in tags. If you want item headings to be made
+invisible while each item is being tested, add:
+
+#+BEGIN_EXAMPLE
+(setq org-drill-hide-item-headings-p t)
+#+END_EXAMPLE
+
 Org-Drill supports two different spaced repetition algorithms -- SM5 (the
 default, implemented by =org-learn=) and SM2. SM2 is an earlier algorithm which
 remains very popular -- Anki and Mnemosyne, two of the most popular spaced
@@ -335,7 +343,7 @@ See the file [[file:spanish.org][spanish.org]] for a full set of example materia
 In org mode, comment lines start with '#'. The rest of the line is ignored by
 Org (apart from some special cases). You may sometimes want to put material in
 comments which you do not want to see when you are being tested on the
-item. For this reason, all comments are rendered invisible while items are
+item. For this reason, comments are always rendered invisible while items are
 being tested.
 
 

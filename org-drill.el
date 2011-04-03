@@ -107,6 +107,12 @@ Possible values:
   :group 'org-drill)
 
 
+(defface org-drill-hidden-cloze-face
+  '((t (:foreground "deep sky blue" :background "blue")))
+  "The face used to hide the contents of cloze phrases."
+  :group 'org-drill)
+
+
 (defcustom org-drill-use-visible-cloze-face-p
   nil
   "Use a special face to highlight cloze-deleted text in org mode
@@ -115,10 +121,13 @@ buffers?"
   :type 'boolean)
 
 
-(defface org-drill-hidden-cloze-face
-  '((t (:foreground "deep sky blue" :background "blue")))
-  "The face used to hide the contents of cloze phrases."
-  :group 'org-drill)
+(defcustom org-drill-hide-item-headings-p
+  nil
+  "Conceal the contents of the main heading of each item during drill
+sessions? You may want to enable this behaviour if item headings or tags
+contain information that could 'give away' the answer."
+  :group 'org-drill
+  :type 'boolean)
 
 
 (defcustom org-drill-new-count-color
@@ -155,7 +164,7 @@ during a drill session."
                     face org-drill-hidden-cloze-face
                     window t))
 
-(setplist 'org-drill-hidden-comment-overlay
+(setplist 'org-drill-hidden-text-overlay
           '(invisible t))
 
 
@@ -259,6 +268,13 @@ for review unless they were already reviewed in the recent past?")
   list)
 
 
+(defun round-float (floatnum fix)
+  "Round the floating point number FLOATNUM to FIX decimal places.
+Example: (round-float 3.56755765 3) -> 3.568"
+  (let ((n (expt 10 fix)))
+    (/ (float (round (* floatnum n))) n)))
+
+
 (defun time-to-inactive-org-timestamp (time)
   (format-time-string
    (concat "[" (substring (cdr org-time-stamp-formats) 1 -1) "]")
@@ -277,6 +293,8 @@ for review unless they were already reviewed in the recent past?")
 
 (defmacro with-hidden-comments (&rest body)
   `(progn
+     (if org-drill-hide-item-headings-p
+         (org-drill-hide-heading-at-point))
      (org-drill-hide-comments)
      (unwind-protect
          (progn
@@ -326,7 +344,7 @@ or a subheading within a drill item?"
 
 
 (defun org-drill-goto-drill-entry-heading ()
-  "Move the point to the heading which hold the :drill: tag for this
+  "Move the point to the heading which holds the :drill: tag for this
 drill entry."
   (unless (org-at-heading-p)
     (org-back-to-heading))
@@ -449,18 +467,22 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
   (assert (> n 0))
   (assert (and (>= quality 0) (<= quality 5)))
   (let ((next-ef (modify-e-factor ef quality))
+        (old-ef ef)
         (interval nil))
     (setq of-matrix
           (set-optimal-factor n next-ef of-matrix
-                              (modify-of (get-optimal-factor n ef of-matrix)
-                                         quality org-learn-fraction))
-          ef next-ef)
+                              (round-float
+                               (modify-of (get-optimal-factor n ef of-matrix)
+                                          quality org-learn-fraction)
+                               3)))     ; round OF to 3 d.p.
+
+    (setq ef next-ef)
 
     (cond
      ;; "Failed" -- reset repetitions to 0,
      ((<= quality org-drill-failure-quality)
-      (list -1 1 ef of-matrix))      ; Not clear if OF matrix is supposed to be
-                                     ; preserved
+      (list -1 1 old-ef of-matrix))     ; Not clear if OF matrix is supposed to
+                                        ; be preserved
      ;; For a zero-based quality of 4 or 5, don't repeat
      ((and (>= quality 4)
            (not org-learn-always-reschedule))
@@ -477,8 +499,9 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
 
 ;;; Essentially copied from `org-learn.el', but modified to
 ;;; optionally call the SM2 function above.
-(defun org-drill-smart-reschedule (quality)
-  (interactive "nHow well did you remember the information (on a scale of 0-5)? ")
+(defun org-drill-smart-reschedule (quality &optional days-ahead)
+  "If DAYS-AHEAD is supplied it must be a positive integer. The
+item will be scheduled exactly this many days into the future."
   (let* ((learn-str (org-entry-get (point) "LEARN_DATA"))
 	 (learn-data (or (and learn-str
 			      (read learn-str))
@@ -496,6 +519,8 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
                                               (nth 2 learn-data)
                                               quality
                                               (nth 3 learn-data)))))
+    (if (integerp days-ahead)
+        (setf (nth 0 learn-data) days-ahead))
     (org-entry-put (point) "LEARN_DATA" (prin1-to-string learn-data))
     (cond
      ((= 0 (nth 0 learn-data))
@@ -508,6 +533,9 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
 
 
 (defun org-drill-hypothetical-next-review-date (quality)
+  "Returns an integer representing the number of days into the future
+that the current item would be scheduled, based on a recall quality
+of QUALITY."
   (let* ((learn-str (org-entry-get (point) "LEARN_DATA"))
 	 (learn-data (or (and learn-str
 			      (read learn-str))
@@ -532,13 +560,20 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
       (nth 0 learn-data)))))
 
 
+(defun org-drill-hypothetical-next-review-dates ()
+  (let ((intervals nil))
+    (dotimes (q 6)
+      (push (max (or (car intervals) 0)
+                 (org-drill-hypothetical-next-review-date q))
+            intervals))
+    (reverse intervals)))
+
+
 (defun org-drill-reschedule ()
   "Returns quality rating (0-5), or nil if the user quit."
   (let ((ch nil)
         (input nil)
-        (next-review-date-3 (org-drill-hypothetical-next-review-date 3))
-        (next-review-date-4 (org-drill-hypothetical-next-review-date 4))
-        (next-review-date-5 (org-drill-hypothetical-next-review-date 5)))
+        (next-review-dates (org-drill-hypothetical-next-review-dates)))
     (save-excursion
       (while (not (memq ch '(?q ?e ?0 ?1 ?2 ?3 ?4 ?5)))
         (setq input (read-key-sequence
@@ -554,9 +589,9 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
 5 - You remembered the item really easily. (+%s days)
 
 How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
-                                 next-review-date-3
-                                 next-review-date-4
-                                 next-review-date-5)
+                                 (nth 3 next-review-dates)
+                                 (nth 4 next-review-dates)
+                                 (nth 5 next-review-dates))
                        "How well did you do? (0-5, ?=help, e=edit, q=quit)")))
         (cond
          ((stringp input)
@@ -581,7 +616,8 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
       (let ((quality (- ch ?0))
             (failures (org-entry-get (point) "DRILL_FAILURE_COUNT")))
         (save-excursion
-          (org-drill-smart-reschedule quality))
+          (org-drill-smart-reschedule quality
+                                      (nth quality next-review-dates)))
         (push quality *org-drill-session-qualities*)
         (cond
          ((<= quality org-drill-failure-quality)
@@ -696,23 +732,34 @@ Consider reformulating the item to make it easier to remember.\n"
     (org-in-regexp regexp nlines)))
 
 
+(defun org-drill-hide-region (beg end)
+  "Hide the buffer region between BEG and END with an 'invisible text'
+visual overlay."
+  (let ((ovl (make-overlay beg end)))
+    (overlay-put ovl 'category
+                 'org-drill-hidden-text-overlay)))
+
+
+(defun org-drill-hide-heading-at-point ()
+  (unless (org-at-heading-p)
+    (error "Point is not on a heading."))
+  (save-excursion
+    (let ((beg (point)))
+      (end-of-line)
+      (org-drill-hide-region beg (point)))))
+
+
 (defun org-drill-hide-comments ()
   (save-excursion
     (while (re-search-forward "^#.*$" nil t)
-      (org-drill-hide-comment))))
-
-
-(defun org-drill-hide-comment ()
-  "Hide the current match with a 'cloze' visual overlay."
-  (let ((ovl (make-overlay (match-beginning 0) (match-end 0))))
-    (overlay-put ovl 'category
-                 'org-drill-hidden-comment-overlay)))
+      (org-drill-hide-region (match-beginning 0) (match-end 0)))))
 
 
 (defun org-drill-unhide-comments ()
+  ;; This will also unhide the item's heading.
   (save-excursion
     (dolist (ovl (overlays-in (point-min) (point-max)))
-      (when (eql 'org-drill-hidden-comment-overlay (overlay-get ovl 'category))
+      (when (eql 'org-drill-hidden-text-overlay (overlay-get ovl 'category))
         (delete-overlay ovl)))))
 
 
