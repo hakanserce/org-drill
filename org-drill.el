@@ -1,18 +1,17 @@
-;;; org-drill.el - Self-testing with org-learn
+;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 1.7
+;;; Version: 2.0
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
 ;;; Synopsis
 ;;; ========
 ;;;
-;;; Uses the spaced repetition algorithm in `org-learn' to conduct interactive
+;;; Uses the SuperMemo spaced repetition algorithms to conduct interactive
 ;;; "drill sessions", where the material to be remembered is presented to the
 ;;; student in random order. The student rates his or her recall of each item,
-;;; and this information is fed back to `org-learn' to schedule the item for
-;;; later revision.
+;;; and this information is used to schedule the item for later revision.
 ;;;
 ;;; Each drill session can be restricted to topics in the current buffer
 ;;; (default), one or several files, all agenda files, or a subtree. A single
@@ -45,7 +44,6 @@ by `org-drill'."
   :type 'string)
 
 
-
 (defcustom org-drill-maximum-items-per-session
   30
   "Each drill session will present at most this many topics for review.
@@ -67,11 +65,26 @@ Nil means unlimited."
   2
   "If the quality of recall for an item is this number or lower,
 it is regarded as an unambiguous failure, and the repetition
-interval for the card is reset to 0 days.  By default this is
-2. For Mnemosyne-like behaviour, set it to 1.  Other values are
-not really sensible."
+interval for the card is reset to 0 days.  If the quality is higher
+than this number, it is regarded as successfully recalled, but the
+time interval to the next repetition will be lowered if the quality
+was near to a fail.
+
+By default this is 2, for SuperMemo-like behaviour. For
+Mnemosyne-like behaviour, set it to 1.  Other values are not
+really sensible."
   :group 'org-drill
   :type '(choice (const 2) (const 1)))
+
+
+(defcustom org-drill-forgetting-index
+  10
+  "What percentage of items do you consider it is 'acceptable' to
+forget each drill session? The default is 10%. A warning message
+is displayed at the end of the session if the percentage forgotten
+climbs above this number."
+  :group 'org-drill
+  :type 'integer)
 
 
 (defcustom org-drill-leech-failure-threshold
@@ -174,6 +187,7 @@ during a drill session."
   ;; ver 3!  "\\(\\[.*?\\]\\|\\[.*?[[:cntrl:]]+.*?\\]\\)"
   "\\(\\[[[:cntrl:][:graph:][:space:]]*?\\)\\(\\||.+?\\)\\(\\]\\)")
 
+
 (defvar org-drill-cloze-keywords
   `((,org-drill-cloze-regexp
      (1 'org-drill-visible-cloze-face nil)
@@ -200,19 +214,61 @@ boolean value."
 (defcustom org-drill-spaced-repetition-algorithm
   'sm5
   "Which SuperMemo spaced repetition algorithm to use for scheduling items.
-Available choices are SM2 and SM5."
+Available choices are:
+- SM2 :: the SM2 algorithm, used in SuperMemo 2.0
+- SM5 :: the SM5 algorithm, used in SuperMemo 5.0
+- Simple8 :: a modified version of the SM8 algorithm. SM8 is used in
+  SuperMemo 98. The version implemented here is simplified in that while it
+  'learns' the difficulty of each item using quality grades and number of
+  failures, it does not modify the matrix of values that
+  governs how fast the inter-repetition intervals increase. A method for
+  adjusting intervals when items are reviewed early or late has been taken
+  from SM11, a later version of the algorithm, and included in Simple8."
   :group 'org-drill
-  :type '(choice (const 'sm2) (const 'sm5)))
+  :type '(choice (const 'sm2) (const 'sm5) (const 'simple8)))
+
+
+
+(defcustom org-drill-optimal-factor-matrix
+  nil
+  "DO NOT CHANGE THE VALUE OF THIS VARIABLE.
+
+Persistent matrix of optimal factors, used by the SuperMemo SM5 algorithm.
+The matrix is saved (using the 'customize' facility) at the end of each
+drill session.
+
+Over time, values in the matrix will adapt to the individual user's
+pace of learning."
+  :group 'org-drill
+  :type 'sexp)
+
 
 (defcustom org-drill-add-random-noise-to-intervals-p
   nil
   "If true, the number of days until an item's next repetition
 will vary slightly from the interval calculated by the SM2
 algorithm. The variation is very small when the interval is
-small, and scales up with the interval. The code for calculating
-random noise is adapted from Mnemosyne."
+small, but scales up with the interval."
   :group 'org-drill
   :type 'boolean)
+
+
+(defcustom org-drill-adjust-intervals-for-early-and-late-repetitions-p
+  nil
+  "If true, when the student successfully reviews an item 1 or more days
+before or after the scheduled review date, this will affect that date of
+the item's next scheduled review, according to the algorithm presented at
+ [[http://www.supermemo.com/english/algsm11.htm#Advanced%20repetitions]].
+
+Items that were reviewed early will have their next review date brought
+forward. Those that were reviewed late will have their next review
+date postponed further.
+
+Note that this option currently has no effect if the SM2 algorithm
+is used."
+  :group 'org-drill
+  :type 'boolean)
+
 
 (defcustom org-drill-cram-hours
   12
@@ -225,6 +281,7 @@ they were reviewed at least this many hours ago."
 (defvar *org-drill-session-qualities* nil)
 (defvar *org-drill-start-time* 0)
 (defvar *org-drill-new-entries* nil)
+(defvar *org-drill-dormant-entry-count* 0)
 (defvar *org-drill-mature-entries* nil)
 (defvar *org-drill-failed-entries* nil)
 (defvar *org-drill-again-entries* nil)
@@ -233,6 +290,41 @@ they were reviewed at least this many hours ago."
   "Are we in 'cram mode', where all items are considered due
 for review unless they were already reviewed in the recent past?")
 
+
+(defcustom org-drill-learn-fraction
+  0.5
+  "Fraction between 0 and 1 that governs how quickly the spaces
+between successive repetitions increase, for all items. The
+default value is 0.5. Higher values make spaces increase more
+quickly with each successful repetition. You should only change
+this in small increments (for example 0.05-0.1) as it has an
+exponential effect on inter-repetition spacing."
+  :group 'org-drill
+  :type 'float)
+
+
+;;; Make the above settings safe as file-local variables.
+
+
+(put 'org-drill-question-tag 'safe-local-variable 'stringp)
+(put 'org-drill-maximum-items-per-session 'safe-local-variable
+     '(lambda (val) (or (stringp val) (null val))))
+(put 'org-drill-maximum-duration 'safe-local-variable
+     '(lambda (val) (or (stringp val) (null val))))
+(put 'org-drill-failure-quality 'safe-local-variable 'integerp)
+(put 'org-drill-forgetting-index 'safe-local-variable 'integerp)
+(put 'org-drill-leech-failure-threshold 'safe-local-variable 'integerp)
+(put 'org-drill-leech-method 'safe-local-variable
+     '(lambda (val) (memq val '(nil skip warn))))
+(put 'org-drill-use-visible-cloze-face-p 'safe-local-variable 'booleanp)
+(put 'org-drill-hide-item-headings-p 'safe-local-variable 'booleanp)
+(put 'org-drill-spaced-repetition-algorithm 'safe-local-variable
+     '(lambda (val) (memq val '(simple8 sm5 sm2))))
+(put 'org-drill-add-random-noise-to-intervals-p 'safe-local-variable 'booleanp)
+(put 'org-drill-adjust-intervals-for-early-and-late-repetitions-p
+     'safe-local-variable 'booleanp)
+(put 'org-drill-cram-hours 'safe-local-variable 'integerp)
+(put 'org-drill-learn-fraction 'safe-local-variable 'floatp)
 
 
 ;;;; Utilities ================================================================
@@ -330,9 +422,9 @@ in hours rather than days."
 
 (defun org-drill-entry-p ()
   "Is the current entry a 'drill item'?"
-  (or (org-entry-get (point) "LEARN_DATA")
-      ;;(assoc "LEARN_DATA" (org-entry-properties nil))
-      (member org-drill-question-tag (org-get-local-tags))))
+  ;;(or (org-entry-get (point) "LEARN_DATA")
+  ;;(assoc "LEARN_DATA" (org-entry-properties nil))
+  (member org-drill-question-tag (org-get-local-tags)))
 
 
 (defun org-part-of-drill-entry-p ()
@@ -374,7 +466,7 @@ drill entry."
       (and (org-drill-entry-p)
            (or (not (eql 'skip org-drill-leech-method))
                (not (org-drill-entry-leech-p)))
-           (or (null item-time)
+           (or (null item-time)         ; not scheduled
                (not (minusp             ; scheduled for today/in future
                      (- (time-to-days (current-time))
                         (time-to-days item-time))))))))))
@@ -386,7 +478,6 @@ drill entry."
          (null item-time))))
 
 
-
 (defun org-drill-entry-last-quality ()
   (let ((quality (org-entry-get (point) "DRILL_LAST_QUALITY")))
     (if quality
@@ -394,53 +485,43 @@ drill entry."
       nil)))
 
 
-;;; SM2 Algorithm =============================================================
+(defun org-drill-entry-failure-count ()
+  (let ((quality (org-entry-get (point) "DRILL_FAILURE_COUNT")))
+    (if quality
+        (string-to-number quality)
+      0)))
 
 
-(defun determine-next-interval-sm2 (last-interval n ef quality of-matrix)
-  "Arguments:
-- LAST-INTERVAL -- the number of days since the item was last reviewed.
-- N -- the number of times the item has been successfully reviewed
-- EF -- the 'easiness factor'
-- QUALITY -- 0 to 5
-- OF-MATRIX -- a matrix of values, used by SM5 but not by SM2.
+(defun org-drill-entry-average-quality (&optional default)
+  (let ((val (org-entry-get (point) "DRILL_AVERAGE_QUALITY")))
+    (if val
+        (string-to-number val)
+      (or default nil))))
 
-Returns a list: (INTERVAL N EF OFMATRIX), where:
-- INTERVAL is the number of days until the item should next be reviewed
-- N is incremented by 1.
-- EF is modified based on the recall quality for the item.
-- OF-MATRIX is not modified."
-  (assert (> n 0))
-  (assert (and (>= quality 0) (<= quality 5)))
-  (if (<= quality org-drill-failure-quality)
-      ;; When an item is failed, its interval is reset to 0,
-      ;; but its EF is unchanged
-      (list -1 1 ef of-matrix)
-    ;; else:
-    (let* ((next-ef (modify-e-factor ef quality))
-           (interval
-            (cond
-             ((<= n 1) 1)
-             ((= n 2)
-              (cond
-               (org-drill-add-random-noise-to-intervals-p
-                (case quality
-                  (5 6)
-                  (4 4)
-                  (3 3)
-                  (2 1)
-                  (t -1)))
-               (t 6)))
-             (t (ceiling (* last-interval next-ef))))))
-      (list (round
-             (if org-drill-add-random-noise-to-intervals-p
-                 (+ last-interval (* (- interval last-interval)
-                                     (org-drill-random-dispersal-factor)))
-               interval))
-            (1+ n) next-ef of-matrix))))
+(defun org-drill-entry-last-interval (&optional default)
+  (let ((val (org-entry-get (point) "DRILL_LAST_INTERVAL")))
+    (if val
+        (string-to-number val)
+      (or default 0))))
 
+(defun org-drill-entry-repeats-since-fail (&optional default)
+  (let ((val (org-entry-get (point) "DRILL_REPEATS_SINCE_FAIL")))
+    (if val
+        (string-to-number val)
+      (or default 0))))
 
-;;; SM5 Algorithm =============================================================
+(defun org-drill-entry-total-repeats (&optional default)
+  (let ((val (org-entry-get (point) "DRILL_TOTAL_REPEATS")))
+    (if val
+        (string-to-number val)
+      (or default 0))))
+
+(defun org-drill-entry-ease (&optional default)
+  (let ((val (org-entry-get (point) "DRILL_EASE")))
+    (if val
+        (string-to-number val)
+      default)))
+
 
 ;;; From http://www.supermemo.com/english/ol/sm5.htm
 (defun org-drill-random-dispersal-factor ()
@@ -456,37 +537,187 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
          100))))
 
 
+(defun org-drill-early-interval-factor (optimal-factor
+                                                optimal-interval
+                                                days-ahead)
+  "Arguments:
+- OPTIMAL-FACTOR: interval-factor if the item had been tested
+exactly when it was supposed to be.
+- OPTIMAL-INTERVAL: interval for next repetition (days) if the item had been
+tested exactly when it was supposed to be.
+- DAYS-AHEAD: how many days ahead of time the item was reviewed.
+
+Returns an adjusted optimal factor which should be used to
+calculate the next interval, instead of the optimal factor found
+in the matrix."
+  (let ((delta-ofmax (* (1- optimal-factor)
+                    (/ (+ optimal-interval
+                          (* 0.6 optimal-interval) -1) (1- optimal-interval)))))
+    (- optimal-factor
+       (* delta-ofmax (/ days-ahead (+ days-ahead (* 0.6 optimal-interval)))))))
+
+
+(defun org-drill-get-item-data ()
+  "Returns a list of 6 items, containing all the stored recall
+  data for the item at point:
+- LAST-INTERVAL is the interval in days that was used to schedule the item's
+  current review date.
+- REPEATS is the number of items the item has been successfully recalled without
+  without any failures. It is reset to 0 upon failure to recall the item.
+- FAILURES is the total number of times the user has failed to recall the item.
+- TOTAL-REPEATS includes both successful and unsuccessful repetitions.
+- AVERAGE-QUALITY is the mean quality of recall of the item over
+  all its repetitions, successful and unsuccessful.
+- EASE is a number reflecting how easy the item is to learn. Higher is easier.
+"
+  (let ((learn-str (org-entry-get (point) "LEARN_DATA"))
+        (repeats (org-drill-entry-total-repeats :missing)))
+    (cond
+     (learn-str
+      (let ((learn-data (or (and learn-str
+                                 (read learn-str))
+                            (copy-list initial-repetition-state))))
+        (list (nth 0 learn-data)        ; last interval
+              (nth 1 learn-data)        ; repetitions
+              (org-drill-entry-failure-count)
+              (nth 1 learn-data)
+              (org-drill-entry-last-quality)
+              (nth 2 learn-data)        ; EF
+              )))
+     ((not (eql :missing repeats))
+      (list (org-drill-entry-last-interval)
+            (org-drill-entry-repeats-since-fail)
+            (org-drill-entry-failure-count)
+            (org-drill-entry-total-repeats)
+            (org-drill-entry-average-quality)
+            (org-drill-entry-ease)))
+     (t  ; virgin item
+      (list 0 0 0 0 nil nil)))))
+
+
+(defun org-drill-store-item-data (last-interval repeats failures
+                                                total-repeats meanq
+                                                ease)
+  "Stores the given data in the item at point."
+  (org-entry-delete (point) "LEARN_DATA")
+  (org-set-property "DRILL_LAST_INTERVAL"
+                    (number-to-string (round-float last-interval 4)))
+  (org-set-property "DRILL_REPEATS_SINCE_FAIL" (number-to-string repeats))
+  (org-set-property "DRILL_TOTAL_REPEATS" (number-to-string total-repeats))
+  (org-set-property "DRILL_FAILURE_COUNT" (number-to-string failures))
+  (org-set-property "DRILL_AVERAGE_QUALITY"
+                    (number-to-string (round-float meanq 3)))
+  (org-set-property "DRILL_EASE"
+                    (number-to-string (round-float ease 3))))
+
+
+
+;;; SM2 Algorithm =============================================================
+
+
+(defun determine-next-interval-sm2 (last-interval n ef quality
+                                                  failures meanq total-repeats)
+  "Arguments:
+- LAST-INTERVAL -- the number of days since the item was last reviewed.
+- REPEATS -- the number of times the item has been successfully reviewed
+- EF -- the 'easiness factor'
+- QUALITY -- 0 to 5
+
+Returns a list: (INTERVAL REPEATS EF FAILURES MEAN TOTAL-REPEATS OFMATRIX), where:
+- INTERVAL is the number of days until the item should next be reviewed
+- REPEATS is incremented by 1.
+- EF is modified based on the recall quality for the item.
+- OF-MATRIX is not modified."
+  (assert (> n 0))
+  (assert (and (>= quality 0) (<= quality 5)))
+  (if (<= quality org-drill-failure-quality)
+      ;; When an item is failed, its interval is reset to 0,
+      ;; but its EF is unchanged
+      (list -1 1 ef (1+ failures) meanq (1+ total-repeats)
+            org-drill-optimal-factor-matrix)
+    ;; else:
+    (let* ((next-ef (modify-e-factor ef quality))
+           (interval
+            (cond
+             ((<= n 1) 1)
+             ((= n 2)
+              (cond
+               (org-drill-add-random-noise-to-intervals-p
+                (case quality
+                  (5 6)
+                  (4 4)
+                  (3 3)
+                  (2 1)
+                  (t -1)))
+               (t 6)))
+             (t (* last-interval next-ef)))))
+      (list (if org-drill-add-random-noise-to-intervals-p
+                (+ last-interval (* (- interval last-interval)
+                                    (org-drill-random-dispersal-factor)))
+              interval)
+            (1+ n)
+            next-ef
+            failures meanq (1+ total-repeats)
+            org-drill-optimal-factor-matrix))))
+
+
+;;; SM5 Algorithm =============================================================
+
+
 (defun inter-repetition-interval-sm5 (last-interval n ef &optional of-matrix)
-  (let ((of (get-optimal-factor n ef of-matrix)))
+  (let ((of (get-optimal-factor n ef (or of-matrix
+                                         org-drill-optimal-factor-matrix))))
     (if (= 1 n)
 	of
       (* of last-interval))))
 
 
-(defun determine-next-interval-sm5 (last-interval n ef quality of-matrix)
+(defun determine-next-interval-sm5 (last-interval n ef quality
+                                                  failures meanq total-repeats
+                                                  of-matrix &optional delta-days)
+  (if (zerop n) (setq n 1))
+  (if (null ef) (setq ef 2.5))
   (assert (> n 0))
   (assert (and (>= quality 0) (<= quality 5)))
+  (unless of-matrix
+    (setq of-matrix org-drill-optimal-factor-matrix))
+  (setq of-matrix (cl-copy-tree of-matrix))
+
+  (setq meanq (if meanq
+                  (/ (+ quality (* meanq total-repeats 1.0))
+                     (1+ total-repeats))
+                quality))
+
   (let ((next-ef (modify-e-factor ef quality))
         (old-ef ef)
+        (new-of (modify-of (get-optimal-factor n ef of-matrix)
+                           quality org-drill-learn-fraction))
         (interval nil))
+    (when (and org-drill-adjust-intervals-for-early-and-late-repetitions-p
+               delta-days (minusp delta-days))
+      (setq new-of (org-drill-early-interval-factor
+                    (get-optimal-factor n ef of-matrix)
+                    (inter-repetition-interval-sm5
+                     last-interval n ef of-matrix)
+                    delta-days)))
+
     (setq of-matrix
           (set-optimal-factor n next-ef of-matrix
-                              (round-float
-                               (modify-of (get-optimal-factor n ef of-matrix)
-                                          quality org-learn-fraction)
-                               3)))     ; round OF to 3 d.p.
+                              (round-float new-of 3)))     ; round OF to 3 d.p.
 
     (setq ef next-ef)
 
     (cond
      ;; "Failed" -- reset repetitions to 0,
      ((<= quality org-drill-failure-quality)
-      (list -1 1 old-ef of-matrix))     ; Not clear if OF matrix is supposed to
-                                        ; be preserved
+      (list -1 1 old-ef (1+ failures) meanq (1+ total-repeats)
+            of-matrix))     ; Not clear if OF matrix is supposed to be
+                            ; preserved
      ;; For a zero-based quality of 4 or 5, don't repeat
-     ((and (>= quality 4)
-           (not org-learn-always-reschedule))
-      (list 0 (1+ n) ef of-matrix))     ; 0 interval = unschedule
+     ;; ((and (>= quality 4)
+     ;;       (not org-learn-always-reschedule))
+     ;;  (list 0 (1+ n) ef failures meanq
+     ;;        (1+ total-repeats) of-matrix))     ; 0 interval = unschedule
      (t
       (setq interval (inter-repetition-interval-sm5
                       last-interval n ef of-matrix))
@@ -494,7 +725,122 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
           (setq interval (+ last-interval
                             (* (- interval last-interval)
                                (org-drill-random-dispersal-factor)))))
-      (list (round interval) (1+ n) ef of-matrix)))))
+      (list interval
+            (1+ n)
+            ef
+            failures
+            meanq
+            (1+ total-repeats)
+            of-matrix)))))
+
+
+;;; Simple8 Algorithm =========================================================
+
+
+(defun org-drill-simple8-first-interval (failures)
+  "Arguments:
+- FAILURES: integer >= 0. The total number of times the item has
+  been forgotten, ever.
+
+Returns the optimal FIRST interval for an item which has previously been
+forgotten on FAILURES occasions."
+  (* 2.4849 (exp (* -0.057 failures))))
+
+
+(defun org-drill-simple8-interval-factor (ease repetition)
+  "Arguments:
+- EASE: floating point number >= 1.2. Corresponds to `AF' in SM8 algorithm.
+- REPETITION: the number of times the item has been tested.
+1 is the first repetition (ie the second trial).
+Returns:
+The factor by which the last interval should be
+multiplied to give the next interval. Corresponds to `RF' or `OF'."
+  (+ 1.2 (* (- ease 1.2) (expt org-drill-learn-fraction (log repetition 2)))))
+
+
+(defun org-drill-simple8-quality->ease (quality)
+  "Returns the ease (`AF' in the SM8 algorithm) which corresponds
+to a mean item quality of QUALITY."
+  (+ (* 0.0542 (expt quality 4))
+     (* -0.4848 (expt quality 3))
+     (* 1.4916 (expt quality 2))
+     (* -1.2403 quality)
+     1.4515))
+
+
+(defun determine-next-interval-simple8 (last-interval repeats quality
+                                                      failures meanq totaln
+                                                      &optional delta-days)
+  "Arguments:
+- LAST-INTERVAL -- the number of days since the item was last reviewed.
+- REPEATS -- the number of times the item has been successfully reviewed
+- EASE -- the 'easiness factor'
+- QUALITY -- 0 to 5
+- DELTA-DAYS -- how many days overdue was the item when it was reviewed.
+  0 = reviewed on the scheduled day. +N = N days overdue.
+  -N = reviewed N days early.
+
+Returns the new item data, as a list of 6 values:
+- NEXT-INTERVAL
+- REPEATS
+- EASE
+- FAILURES
+- AVERAGE-QUALITY
+- TOTAL-REPEATS.
+See the documentation for `org-drill-get-item-data' for a description of these."
+  (assert (>= repeats 0))
+  (assert (and (>= quality 0) (<= quality 5)))
+  (assert (or (null meanq) (and (>= meanq 0) (<= meanq 5))))
+  (let ((next-interval nil))
+    (setf meanq (if meanq
+                    (/ (+ quality (* meanq totaln 1.0)) (1+ totaln))
+                  quality))
+    (cond
+     ((or (zerop repeats)
+          (zerop last-interval))
+      (setf next-interval (org-drill-simple8-first-interval failures))
+      (incf repeats)
+      (incf totaln))
+     (t
+      (cond
+       ((<= quality org-drill-failure-quality)
+        (incf failures)
+        (setf repeats 0
+              next-interval -1))
+       (t
+        (let* ((use-n
+                (if (and
+                     org-drill-adjust-intervals-for-early-and-late-repetitions-p
+                     (numberp delta-days) (plusp delta-days)
+                     (plusp last-interval))
+                    (+ repeats (min 1 (/ delta-days last-interval 1.0)))
+                  repeats))
+               (factor (org-drill-simple8-interval-factor
+                        (org-drill-simple8-quality->ease meanq) use-n))
+               (next-int (* last-interval factor)))
+          (when (and org-drill-adjust-intervals-for-early-and-late-repetitions-p
+                     (numberp delta-days) (minusp delta-days))
+            ;; The item was reviewed earlier than scheduled.
+            (setf factor (org-drill-early-interval-factor
+                          factor next-int (abs delta-days))
+                  next-int (* last-interval factor)))
+          (setf next-interval next-int)
+          (incf repeats)
+          (incf totaln))))))
+    (list
+     (if (and org-drill-add-random-noise-to-intervals-p
+              (plusp next-interval))
+         (+ last-interval (* (- next-interval last-interval)
+                             (org-drill-random-dispersal-factor)))
+       next-interval)
+     repeats
+     (org-drill-simple8-quality->ease meanq)
+     failures
+     meanq
+     totaln
+     )))
+
+
 
 
 ;;; Essentially copied from `org-learn.el', but modified to
@@ -502,62 +848,73 @@ Returns a list: (INTERVAL N EF OFMATRIX), where:
 (defun org-drill-smart-reschedule (quality &optional days-ahead)
   "If DAYS-AHEAD is supplied it must be a positive integer. The
 item will be scheduled exactly this many days into the future."
-  (let* ((learn-str (org-entry-get (point) "LEARN_DATA"))
-	 (learn-data (or (and learn-str
-			      (read learn-str))
-			 (copy-list initial-repetition-state)))
-	 closed-dates)
-    (setq learn-data
+  (let ((delta-days (- (time-to-days (current-time))
+                   (time-to-days (or (org-get-scheduled-time (point))
+                                     (current-time)))))
+        (ofmatrix org-drill-optimal-factor-matrix))
+    (destructuring-bind (last-interval repetitions failures
+                                       total-repeats meanq ease)
+        (org-drill-get-item-data)
+      (destructuring-bind (next-interval repetitions ease
+                                         failures meanq total-repeats
+                                         &optional new-ofmatrix)
           (case org-drill-spaced-repetition-algorithm
-            (sm5 (determine-next-interval-sm5 (nth 0 learn-data)
-                                              (nth 1 learn-data)
-                                              (nth 2 learn-data)
-                                              quality
-                                              (nth 3 learn-data)))
-            (sm2 (determine-next-interval-sm2 (nth 0 learn-data)
-                                              (nth 1 learn-data)
-                                              (nth 2 learn-data)
-                                              quality
-                                              (nth 3 learn-data)))))
-    (if (integerp days-ahead)
-        (setf (nth 0 learn-data) days-ahead))
-    (org-entry-put (point) "LEARN_DATA" (prin1-to-string learn-data))
-    (cond
-     ((= 0 (nth 0 learn-data))
-      (org-schedule t))
-     ((minusp (first learn-data))
-      (org-schedule nil (current-time)))
-     (t
-      (org-schedule nil (time-add (current-time)
-				  (days-to-time (nth 0 learn-data))))))))
+            (sm5 (determine-next-interval-sm5 last-interval repetitions
+                                              ease quality failures
+                                              meanq total-repeats ofmatrix))
+            (sm2 (determine-next-interval-sm2 last-interval repetitions
+                                              ease quality failures
+                                              meanq total-repeats))
+            (simple8 (determine-next-interval-simple8 last-interval repetitions
+                                                      quality failures meanq
+                                                      total-repeats
+                                                      delta-days)))
+        (if (integerp days-ahead)
+            (setf next-interval days-ahead))
+        (org-drill-store-item-data next-interval repetitions failures
+                                   total-repeats meanq ease)
+        (if (eql 'sm5 org-drill-spaced-repetition-algorithm)
+            (setq org-drill-optimal-factor-matrix new-ofmatrix))
+
+        (cond
+         ((= 0 days-ahead)
+          (org-schedule t))
+         ((minusp days-ahead)
+          (org-schedule nil (current-time)))
+         (t
+          (org-schedule nil (time-add (current-time)
+                                      (days-to-time
+                                       (round next-interval))))))))))
+
 
 
 (defun org-drill-hypothetical-next-review-date (quality)
   "Returns an integer representing the number of days into the future
 that the current item would be scheduled, based on a recall quality
 of QUALITY."
-  (let* ((learn-str (org-entry-get (point) "LEARN_DATA"))
-	 (learn-data (or (and learn-str
-			      (read learn-str))
-			 (copy-list initial-repetition-state)))
-	 closed-dates)
-    (setq learn-data
-          (case org-drill-spaced-repetition-algorithm
-            (sm5 (determine-next-interval-sm5 (nth 0 learn-data)
-                                              (nth 1 learn-data)
-                                              (nth 2 learn-data)
-                                              quality
-                                              (nth 3 learn-data)))
-            (sm2 (determine-next-interval-sm2 (nth 0 learn-data)
-                                              (nth 1 learn-data)
-                                              (nth 2 learn-data)
-                                              quality
-                                              (nth 3 learn-data)))))
-    (cond
-     ((not (plusp (nth 0 learn-data)))
-      0)
-     (t
-      (nth 0 learn-data)))))
+  (destructuring-bind (last-interval repetitions failures
+                                     total-repeats meanq ease)
+      (org-drill-get-item-data)
+    (destructuring-bind (next-interval repetitions ease
+                                       failures meanq total-repeats
+                                       &optional ofmatrix)
+        (case org-drill-spaced-repetition-algorithm
+          (sm5 (determine-next-interval-sm5 last-interval repetitions
+                                            ease quality failures
+                                            meanq total-repeats
+                                            org-drill-optimal-factor-matrix))
+          (sm2 (determine-next-interval-sm2 last-interval repetitions
+                                            ease quality failures
+                                            meanq total-repeats))
+          (simple8 (determine-next-interval-simple8 last-interval repetitions
+                                                    quality failures meanq
+                                                    total-repeats)))
+      (cond
+       ((not (plusp next-interval))
+        0)
+       (t
+        next-interval)))))
+
 
 
 (defun org-drill-hypothetical-next-review-dates ()
@@ -589,9 +946,9 @@ of QUALITY."
 5 - You remembered the item really easily. (+%s days)
 
 How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
-                                 (nth 3 next-review-dates)
-                                 (nth 4 next-review-dates)
-                                 (nth 5 next-review-dates))
+                                 (round (nth 3 next-review-dates))
+                                 (round (nth 4 next-review-dates))
+                                 (round (nth 5 next-review-dates)))
                        "How well did you do? (0-5, ?=help, e=edit, q=quit)")))
         (cond
          ((stringp input)
@@ -614,7 +971,7 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
     (cond
      ((and (>= ch ?0) (<= ch ?5))
       (let ((quality (- ch ?0))
-            (failures (org-entry-get (point) "DRILL_FAILURE_COUNT")))
+            (failures (org-drill-entry-failure-count)))
         (save-excursion
           (org-drill-smart-reschedule quality
                                       (nth quality next-review-dates)))
@@ -622,9 +979,9 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
         (cond
          ((<= quality org-drill-failure-quality)
           (when org-drill-leech-failure-threshold
-            (setq failures (if failures (string-to-number failures) 0))
-            (org-set-property "DRILL_FAILURE_COUNT"
-                              (format "%d" (1+ failures)))
+            ;;(setq failures (if failures (string-to-number failures) 0))
+            ;; (org-set-property "DRILL_FAILURE_COUNT"
+            ;;                   (format "%d" (1+ failures)))
             (if (> (1+ failures) org-drill-leech-failure-threshold)
                 (org-toggle-tag "leech" 'on))))
          (t
@@ -960,46 +1317,6 @@ See `org-drill' for more details."
           (org-drill-reschedule)))))))
 
 
-;; (defun org-drill-entries (entries)
-;;   "Returns nil, t, or a list of markers representing entries that were
-;; 'failed' and need to be presented again before the session ends."
-;;   (let ((again-entries nil))
-;;     (setq *org-drill-done-entry-count* 0
-;;           *org-drill-pending-entry-count* (length entries))
-;;     (if (and org-drill-maximum-items-per-session
-;;              (> (length entries)
-;;                 org-drill-maximum-items-per-session))
-;;         (setq entries (subseq entries 0
-;;                               org-drill-maximum-items-per-session)))
-;;     (block org-drill-entries
-;;       (dolist (m entries)
-;;         (save-restriction
-;;           (switch-to-buffer (marker-buffer m))
-;;           (goto-char (marker-position m))
-;;           (setq result (org-drill-entry))
-;;           (cond
-;;            ((null result)
-;;             (message "Quit")
-;;             (return-from org-drill-entries nil))
-;;            ((eql result 'edit)
-;;             (setq end-pos (point-marker))
-;;             (return-from org-drill-entries nil))
-;;            (t
-;;             (cond
-;;              ((< result 3)
-;;               (push m again-entries))
-;;              (t
-;;               (decf *org-drill-pending-entry-count*)
-;;               (incf *org-drill-done-entry-count*)))
-;;             (when (and org-drill-maximum-duration
-;;                        (> (- (float-time (current-time)) *org-drill-start-time*)
-;;                           (* org-drill-maximum-duration 60)))
-;;               (message "This drill session has reached its maximum duration.")
-;;               (return-from org-drill-entries nil))))))
-;;       (or again-entries
-;;           t))))
-
-
 (defun org-drill-entries-pending-p ()
   (or *org-drill-again-entries*
       (and (not (org-drill-maximum-item-count-reached-p))
@@ -1093,16 +1410,22 @@ maximum number of items."
 
 
 (defun org-drill-final-report ()
-  (read-char-exclusive
+  (let ((pass-percent
+         (round (* 100 (count-if (lambda (qual)
+                                   (> qual org-drill-failure-quality))
+                                 *org-drill-session-qualities*))
+                (max 1 (length *org-drill-session-qualities*))))
+        (prompt nil))
+  (setq prompt
    (format
     "%d items reviewed
-%d items awaiting review (%s, %s, %s)
+%d items awaiting review (%s, %s, %s). %d items dormant.
 Session duration %s
 
 Recall of reviewed items:
- Excellent (5):     %3d%%   |   Near miss (2):     %3d%%
- Good (4):          %3d%%   |   Failure (1):       %3d%%
- Hard (3):          %3d%%   |   Total failure (0): %3d%%
+ Excellent (5):     %3d%%   |   Near miss (2):      %3d%%
+ Good (4):          %3d%%   |   Failure (1):        %3d%%
+ Hard (3):          %3d%%   |   Abject failure (0): %3d%%
 
 You successfully recalled %d%% of reviewed items (quality > %s)
 Session finished. Press a key to continue..."
@@ -1121,6 +1444,7 @@ Session finished. Press a key to continue..."
      (format "%d new"
              (length *org-drill-new-entries*))
      'face `(:foreground ,org-drill-new-count-color))
+    *org-drill-dormant-entry-count*
     (format-seconds "%h:%.2m:%.2s"
                     (- (float-time (current-time)) *org-drill-start-time*))
     (round (* 100 (count 5 *org-drill-session-qualities*))
@@ -1135,13 +1459,26 @@ Session finished. Press a key to continue..."
            (max 1 (length *org-drill-session-qualities*)))
     (round (* 100 (count 0 *org-drill-session-qualities*))
            (max 1 (length *org-drill-session-qualities*)))
-    (round (* 100 (count-if (lambda (qual)
-                              (> qual org-drill-failure-quality))
-                            *org-drill-session-qualities*))
-           (max 1 (length *org-drill-session-qualities*)))
+    pass-percent
     org-drill-failure-quality
-    )))
+    ))
 
+  (while (not (input-pending-p))
+      (message "%s" prompt)
+      (sit-for 0.5))
+  (read-char-exclusive)
+
+  (if (< pass-percent (- 100 org-drill-forgetting-index))
+      (read-char-exclusive
+       (format
+        "%s
+You failed %d%% of the items you reviewed during this session.
+Are you keeping up with your items, and reviewing them
+when they are scheduled? If so, you may want to consider
+lowering the value of `org-drill-learn-fraction' slightly in
+order to make items appear more frequently over time."
+        (propertize "WARNING!" 'face 'org-warning)
+        (- 100 pass-percent))))))
 
 
 (defun org-drill (&optional scope)
@@ -1152,13 +1489,12 @@ hidden. The user attempts to recall the hidden information or
 answer the question, then presses a key to reveal the answer. The
 user then rates his or her recall or performance on that
 topic. This rating information is used to reschedule the topic
-for future review using the `org-learn' library.
+for future review.
 
 Org-drill proceeds by:
 
 - Finding all topics (headings) in SCOPE which have either been
-  used and rescheduled by org-learn before (i.e. the LEARN_DATA
-  property is set), or which have a tag that matches
+  used and rescheduled before, or which have a tag that matches
   `org-drill-question-tag'.
 
 - All matching topics which are either unscheduled, or are
@@ -1189,6 +1525,7 @@ agenda-with-archives
         (cnt 0))
     (block org-drill
       (setq *org-drill-done-entries* nil
+            *org-drill-dormant-entry-count* 0
             *org-drill-new-entries* nil
             *org-drill-mature-entries* nil
             *org-drill-failed-entries* nil
@@ -1206,16 +1543,19 @@ agenda-with-archives
                                (length *org-drill-mature-entries*)
                                (length *org-drill-failed-entries*))
                             (make-string (ceiling cnt 50) ?.)))
-                 (when (org-drill-entry-due-p)
-                   (cond
-                    ((org-drill-entry-new-p)
-                     (push (point-marker) *org-drill-new-entries*))
-                    ((and (org-drill-entry-last-quality)
-                          (<= (org-drill-entry-last-quality)
-                              org-drill-failure-quality))
-                     (push (point-marker) *org-drill-failed-entries*))
-                    (t
-                     (push (point-marker) *org-drill-mature-entries*)))))
+                 (cond
+                  ((not (org-drill-entry-p))
+                   nil)                 ; skip
+                  ((not (org-drill-entry-due-p))
+                   (incf *org-drill-dormant-entry-count*))
+                  ((org-drill-entry-new-p)
+                   (push (point-marker) *org-drill-new-entries*))
+                  ((and (org-drill-entry-last-quality)
+                        (<= (org-drill-entry-last-quality)
+                            org-drill-failure-quality))
+                   (push (point-marker) *org-drill-failed-entries*))
+                  (t
+                   (push (point-marker) *org-drill-mature-entries*))))
                (concat "+" org-drill-question-tag) scope))
             (cond
              ((and (null *org-drill-new-entries*)
@@ -1225,22 +1565,6 @@ agenda-with-archives
              (t
               (org-drill-entries)
               (message "Drill session finished!"))))
-        ;; (cond
-        ;; ((null entries)
-        ;;  (message "I did not find any pending drill items."))
-        ;; (t
-        ;;  (let ((again t))
-        ;;    (while again
-        ;;      (when (listp again)
-        ;;        (setq entries (shuffle-list again)))
-        ;;      (setq again (org-drill-entries entries))
-        ;;      (cond
-        ;;       ((null again)
-        ;;        (return-from org-drill nil))
-        ;;       ((eql t again)
-        ;;        (setq again nil))))
-        ;;    (message "Drill session finished!")
-        ;;    ))))
         (progn
           (dolist (m (append *org-drill-new-entries*
                              *org-drill-failed-entries*
@@ -1253,7 +1577,16 @@ agenda-with-archives
       (goto-char (marker-position end-pos))
       (message "Edit topic."))
      (t
-      (org-drill-final-report)))))
+      (org-drill-final-report)
+      (if (eql 'sm5 org-drill-spaced-repetition-algorithm)
+          (org-drill-save-optimal-factor-matrix))
+      ))))
+
+
+(defun org-drill-save-optimal-factor-matrix ()
+  (message "Saving optimal factor matrix...")
+  (customize-save-variable 'org-drill-optimal-factor-matrix
+                           org-drill-optimal-factor-matrix))
 
 
 (defun org-drill-cram (&optional scope)
