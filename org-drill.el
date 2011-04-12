@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.0
+;;; Version: 2.1
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -278,17 +278,39 @@ they were reviewed at least this many hours ago."
   :type 'integer)
 
 
-(defvar *org-drill-session-qualities* nil)
-(defvar *org-drill-start-time* 0)
-(defvar *org-drill-new-entries* nil)
-(defvar *org-drill-dormant-entry-count* 0)
-(defvar *org-drill-mature-entries* nil)
-(defvar *org-drill-failed-entries* nil)
-(defvar *org-drill-again-entries* nil)
-(defvar *org-drill-done-entries* nil)
-(defvar *org-drill-cram-mode* nil
-  "Are we in 'cram mode', where all items are considered due
-for review unless they were already reviewed in the recent past?")
+;;; NEW items have never been presented in a drill session before.
+;;; MATURE items HAVE been presented at least once before.
+;;; - YOUNG mature items were scheduled no more than
+;;;   ORG-DRILL-DAYS-BEFORE-OLD days after their last
+;;;   repetition. These items will have been learned 'recently' and will have a
+;;;   low repetition count.
+;;; - OLD mature items have intervals greater than
+;;;   ORG-DRILL-DAYS-BEFORE-OLD.
+;;; - OVERDUE items are past their scheduled review date by more than
+;;;   LAST-INTERVAL * (ORG-DRILL-OVERDUE-INTERVAL-FACTOR - 1) days,
+;;;   regardless of young/old status.
+
+
+(defcustom org-drill-days-before-old
+  10
+  "When an item's inter-repetition interval rises above this value in days,
+it is no longer considered a 'young' (recently learned) item."
+  :group 'org-drill
+  :type 'integer)
+
+
+(defcustom org-drill-overdue-interval-factor
+  1.2
+  "An item is considered overdue if its scheduled review date is
+more than (ORG-DRILL-OVERDUE-INTERVAL-FACTOR - 1) * LAST-INTERVAL
+days in the past. For example, a value of 1.2 means an additional
+20% of the last scheduled interval is allowed to elapse before
+the item is overdue. A value of 1.0 means no extra time is
+allowed at all - items are immediately considered overdue if
+there is even one day's delay in reviewing them. This variable
+should never be less than 1.0."
+  :group 'org-drill
+  :type 'float)
 
 
 (defcustom org-drill-learn-fraction
@@ -303,14 +325,39 @@ exponential effect on inter-repetition spacing."
   :type 'float)
 
 
+(defvar *org-drill-session-qualities* nil)
+(defvar *org-drill-start-time* 0)
+(defvar *org-drill-new-entries* nil)
+(defvar *org-drill-dormant-entry-count* 0)
+(defvar *org-drill-due-entry-count* 0)
+(defvar *org-drill-overdue-entry-count* 0)
+(defvar *org-drill-overdue-entries* nil
+  "List of markers for items that are considered 'overdue', based on
+the value of ORG-DRILL-OVERDUE-INTERVAL-FACTOR.")
+(defvar *org-drill-young-mature-entries* nil
+  "List of markers for mature entries whose last inter-repetition
+interval was <= ORG-DRILL-DAYS-BEFORE-OLD days.")
+(defvar *org-drill-old-mature-entries* nil
+  "List of markers for mature entries whose last inter-repetition
+interval was greater than ORG-DRILL-DAYS-BEFORE-OLD days.")
+(defvar *org-drill-failed-entries* nil)
+(defvar *org-drill-again-entries* nil)
+(defvar *org-drill-done-entries* nil)
+(defvar *org-drill-current-item* nil
+  "Set to the marker for the item currently being tested.")
+(defvar *org-drill-cram-mode* nil
+  "Are we in 'cram mode', where all items are considered due
+for review unless they were already reviewed in the recent past?")
+
+
 ;;; Make the above settings safe as file-local variables.
 
 
 (put 'org-drill-question-tag 'safe-local-variable 'stringp)
 (put 'org-drill-maximum-items-per-session 'safe-local-variable
-     '(lambda (val) (or (stringp val) (null val))))
+     '(lambda (val) (or (integerp val) (null val))))
 (put 'org-drill-maximum-duration 'safe-local-variable
-     '(lambda (val) (or (stringp val) (null val))))
+     '(lambda (val) (or (integerp val) (null val))))
 (put 'org-drill-failure-quality 'safe-local-variable 'integerp)
 (put 'org-drill-forgetting-index 'safe-local-variable 'integerp)
 (put 'org-drill-leech-failure-threshold 'safe-local-variable 'integerp)
@@ -325,6 +372,8 @@ exponential effect on inter-repetition spacing."
      'safe-local-variable 'booleanp)
 (put 'org-drill-cram-hours 'safe-local-variable 'integerp)
 (put 'org-drill-learn-fraction 'safe-local-variable 'floatp)
+(put 'org-drill-days-before-old 'safe-local-variable 'integerp)
+(put 'org-drill-overdue-interval-factor 'safe-local-variable 'floatp)
 
 
 ;;;; Utilities ================================================================
@@ -454,22 +503,58 @@ drill entry."
        (member "leech" (org-get-local-tags))))
 
 
-(defun org-drill-entry-due-p ()
+;; (defun org-drill-entry-due-p ()
+;;   (cond
+;;    (*org-drill-cram-mode*
+;;     (let ((hours (org-drill-hours-since-last-review)))
+;;       (and (org-drill-entry-p)
+;;            (or (null hours)
+;;                (>= hours org-drill-cram-hours)))))
+;;    (t
+;;     (let ((item-time (org-get-scheduled-time (point))))
+;;       (and (org-drill-entry-p)
+;;            (or (not (eql 'skip org-drill-leech-method))
+;;                (not (org-drill-entry-leech-p)))
+;;            (or (null item-time)         ; not scheduled
+;;                (not (minusp             ; scheduled for today/in past
+;;                      (- (time-to-days (current-time))
+;;                         (time-to-days item-time))))))))))
+
+
+(defun org-drill-entry-days-overdue ()
+  "Returns:
+- NIL if the item is not to be regarded as scheduled for review at all.
+  This is the case if it is not a drill item, or if it is a leech item
+  that we wish to skip, or if we are in cram mode and have already reviewed
+  the item within the last few hours.
+- 0 if the item is new, or if it scheduled for review today.
+- A negative integer - item is scheduled that many days in the future.
+- A positive integer - item is scheduled that many days in the past."
   (cond
    (*org-drill-cram-mode*
     (let ((hours (org-drill-hours-since-last-review)))
       (and (org-drill-entry-p)
            (or (null hours)
-               (>= hours org-drill-cram-hours)))))
+               (>= hours org-drill-cram-hours))
+           0)))
    (t
     (let ((item-time (org-get-scheduled-time (point))))
-      (and (org-drill-entry-p)
-           (or (not (eql 'skip org-drill-leech-method))
-               (not (org-drill-entry-leech-p)))
-           (or (null item-time)         ; not scheduled
-               (not (minusp             ; scheduled for today/in future
-                     (- (time-to-days (current-time))
-                        (time-to-days item-time))))))))))
+      (cond
+       ((or (not (org-drill-entry-p))
+            (and (eql 'skip org-drill-leech-method)
+                 (org-drill-entry-leech-p)))
+        nil)
+       ((null item-time)                ; not scheduled -> due now
+        0)
+       (t
+        (- (time-to-days (current-time))
+           (time-to-days item-time))))))))
+
+
+(defun org-drill-entry-due-p ()
+  (let ((due (org-drill-entry-days-overdue)))
+    (and (not (null due))
+         (not (minusp due)))))
 
 
 (defun org-drill-entry-new-p ()
@@ -478,11 +563,11 @@ drill entry."
          (null item-time))))
 
 
-(defun org-drill-entry-last-quality ()
+(defun org-drill-entry-last-quality (&optional default)
   (let ((quality (org-entry-get (point) "DRILL_LAST_QUALITY")))
     (if quality
         (string-to-number quality)
-      nil)))
+      default)))
 
 
 (defun org-drill-entry-failure-count ()
@@ -1027,6 +1112,9 @@ the current topic."
          (input nil)
          (ch nil)
          (last-second 0)
+         (mature-entry-count (+ (length *org-drill-young-mature-entries*)
+                                (length *org-drill-old-mature-entries*)
+                                (length *org-drill-overdue-entries*)))
          (prompt
           (if fmt-and-args
               (apply 'format
@@ -1047,7 +1135,7 @@ the current topic."
                    'help-echo (concat "The number of items that you failed, "
                                       "and need to review again."))
                   (propertize
-                   (number-to-string (length *org-drill-mature-entries*))
+                   (number-to-string mature-entry-count)
                    'face `(:foreground ,org-drill-mature-count-color)
                    'help-echo "The number of old items due for review.")
                   (propertize
@@ -1067,11 +1155,12 @@ Consider reformulating the item to make it easier to remember.\n"
     (while (memq ch '(nil ?t))
       (setq ch nil)
       (while (not (input-pending-p))
-        (message (concat (format-time-string
-                          "%M:%S " (time-subtract
-                                   (current-time) item-start-time))
-                         prompt))
-        (sit-for 1))
+        (let ((elapsed (time-subtract (current-time) item-start-time)))
+          (message (concat (if (>= (time-to-seconds elapsed) (* 60 60))
+                               "++:++ "
+                             (format-time-string "%M:%S " elapsed))
+                           prompt))
+          (sit-for 1)))
       (setq input (read-key-sequence nil))
       (if (stringp input) (setq ch (elt input 0)))
       (if (eql ch ?t)
@@ -1281,7 +1370,9 @@ Review will occur regardless of whether the topic is due for review or whether
 it meets the definition of a 'review topic' used by `org-drill'.
 
 Returns a quality rating from 0 to 5, or nil if the user quit, or the symbol
-EDIT if the user chose to exit the drill and edit the current item.
+EDIT if the user chose to exit the drill and edit the current item. Choosing
+the latter option leaves the drill session suspended; it can be resumed
+later using `org-drill-resume'.
 
 See `org-drill' for more details."
   (interactive)
@@ -1323,14 +1414,18 @@ See `org-drill' for more details."
            (not (org-drill-maximum-duration-reached-p))
            (or *org-drill-new-entries*
                *org-drill-failed-entries*
-               *org-drill-mature-entries*
+               *org-drill-young-mature-entries*
+               *org-drill-old-mature-entries*
+               *org-drill-overdue-entries*
                *org-drill-again-entries*))))
 
 
 (defun org-drill-pending-entry-count ()
   (+ (length *org-drill-new-entries*)
      (length *org-drill-failed-entries*)
-     (length *org-drill-mature-entries*)
+     (length *org-drill-young-mature-entries*)
+     (length *org-drill-old-mature-entries*)
+     (length *org-drill-overdue-entries*)
      (length *org-drill-again-entries*)))
 
 
@@ -1358,19 +1453,28 @@ maximum number of items."
          (not (org-drill-maximum-item-count-reached-p))
          (not (org-drill-maximum-duration-reached-p)))
     (pop-random *org-drill-failed-entries*))
-   ;; Next priority is newly added items, and items which
-   ;; are not new and were not failed when they were last
-   ;; reviewed.
+   ;; Next priority is overdue items.
+   ((and *org-drill-overdue-entries*
+         (not (org-drill-maximum-item-count-reached-p))
+         (not (org-drill-maximum-duration-reached-p)))
+    (pop-random *org-drill-overdue-entries*))
+   ;; Next priority is 'young' items.
+   ((and *org-drill-young-mature-entries*
+         (not (org-drill-maximum-item-count-reached-p))
+         (not (org-drill-maximum-duration-reached-p)))
+    (pop-random *org-drill-young-mature-entries*))
+   ;; Next priority is newly added items, and older entries.
+   ;; We pool these into a single group.
    ((and (or *org-drill-new-entries*
-             *org-drill-mature-entries*)
+             *org-drill-old-mature-entries*)
          (not (org-drill-maximum-item-count-reached-p))
          (not (org-drill-maximum-duration-reached-p)))
     (if (< (random (+ (length *org-drill-new-entries*)
-                      (length *org-drill-mature-entries*)))
+                      (length *org-drill-old-mature-entries*)))
            (length *org-drill-new-entries*))
         (pop-random *org-drill-new-entries*)
       ;; else
-      (pop-random *org-drill-mature-entries*)))
+      (pop-random *org-drill-old-mature-entries*)))
    ;; After all the above are done, last priority is items
    ;; that were failed earlier THIS SESSION.
    (*org-drill-again-entries*
@@ -1379,33 +1483,43 @@ maximum number of items."
     nil)))
 
 
-(defun org-drill-entries ()
+(defun org-drill-entries (&optional resuming-p)
   "Returns nil, t, or a list of markers representing entries that were
-'failed' and need to be presented again before the session ends."
+'failed' and need to be presented again before the session ends.
+
+RESUMING-P is true if we are resuming a suspended drill session."
   (block org-drill-entries
     (while (org-drill-entries-pending-p)
-      (setq m (org-drill-pop-next-pending-entry))
-      (unless m
-        (error "Unexpectedly ran out of pending drill items"))
-      (save-excursion
-        (switch-to-buffer (marker-buffer m))
-        (goto-char m)
-        (setq result (org-drill-entry))
-        (cond
-         ((null result)
-          (message "Quit")
-          (return-from org-drill-entries nil))
-         ((eql result 'edit)
-          (setq end-pos (point-marker))
-          (return-from org-drill-entries nil))
-         ((eql result 'skip)
-          nil)                          ; skip this item
-         (t
+      (let ((m (cond
+                ((or (not resuming-p)
+                     (null *org-drill-current-item*))
+                 (org-drill-pop-next-pending-entry))
+                (t                      ; resuming a suspended session.
+                 (setq resuming-p nil)
+                 *org-drill-current-item*))))
+        (setq *org-drill-current-item* m)
+        (unless m
+          (error "Unexpectedly ran out of pending drill items"))
+        (save-excursion
+          (switch-to-buffer (marker-buffer m))
+          (goto-char m)
+          (setq result (org-drill-entry))
           (cond
-           ((<= result org-drill-failure-quality)
-            (push m *org-drill-again-entries*))
+           ((null result)
+            (message "Quit")
+            (setq end-pos :quit)
+            (return-from org-drill-entries nil))
+           ((eql result 'edit)
+            (setq end-pos (point-marker))
+            (return-from org-drill-entries nil))
+           ((eql result 'skip)
+            nil)                        ; skip this item
            (t
-            (push m *org-drill-done-entries*)))))))))
+            (cond
+             ((<= result org-drill-failure-quality)
+              (push m *org-drill-again-entries*))
+             (t
+              (push m *org-drill-done-entries*))))))))))
 
 
 
@@ -1416,10 +1530,10 @@ maximum number of items."
                                  *org-drill-session-qualities*))
                 (max 1 (length *org-drill-session-qualities*))))
         (prompt nil))
-  (setq prompt
-   (format
-    "%d items reviewed
-%d items awaiting review (%s, %s, %s). %d items dormant.
+    (setq prompt
+          (format
+           "%d items reviewed
+%d/%d items awaiting review (%s, %s, %s, %s, %s).
 Session duration %s
 
 Recall of reviewed items:
@@ -1429,59 +1543,75 @@ Recall of reviewed items:
 
 You successfully recalled %d%% of reviewed items (quality > %s)
 Session finished. Press a key to continue..."
-    (length *org-drill-done-entries*)
-    (org-drill-pending-entry-count)
-    (propertize
-     (format "%d failed"
-             (+ (length *org-drill-failed-entries*)
-                (length *org-drill-again-entries*)))
-     'face `(:foreground ,org-drill-failed-count-color))
-    (propertize
-     (format "%d old"
-             (length *org-drill-mature-entries*))
-     'face `(:foreground ,org-drill-mature-count-color))
-    (propertize
-     (format "%d new"
-             (length *org-drill-new-entries*))
-     'face `(:foreground ,org-drill-new-count-color))
-    *org-drill-dormant-entry-count*
-    (format-seconds "%h:%.2m:%.2s"
-                    (- (float-time (current-time)) *org-drill-start-time*))
-    (round (* 100 (count 5 *org-drill-session-qualities*))
-           (max 1 (length *org-drill-session-qualities*)))
-    (round (* 100 (count 2 *org-drill-session-qualities*))
-           (max 1 (length *org-drill-session-qualities*)))
-    (round (* 100 (count 4 *org-drill-session-qualities*))
-           (max 1 (length *org-drill-session-qualities*)))
-    (round (* 100 (count 1 *org-drill-session-qualities*))
-           (max 1 (length *org-drill-session-qualities*)))
-    (round (* 100 (count 3 *org-drill-session-qualities*))
-           (max 1 (length *org-drill-session-qualities*)))
-    (round (* 100 (count 0 *org-drill-session-qualities*))
-           (max 1 (length *org-drill-session-qualities*)))
-    pass-percent
-    org-drill-failure-quality
-    ))
+           (length *org-drill-done-entries*)
+           (org-drill-pending-entry-count)
+           (+ (org-drill-pending-entry-count)
+              *org-drill-dormant-entry-count*)
+           (propertize
+            (format "%d failed"
+                    (+ (length *org-drill-failed-entries*)
+                       (length *org-drill-again-entries*)))
+            'face `(:foreground ,org-drill-failed-count-color))
+           (propertize
+            (format "%d overdue"
+                    (length *org-drill-overdue-entries*))
+            'face `(:foreground ,org-drill-failed-count-color))
+           (propertize
+            (format "%d new"
+                    (length *org-drill-new-entries*))
+            'face `(:foreground ,org-drill-new-count-color))
+           (propertize
+            (format "%d young"
+                    (length *org-drill-young-mature-entries*))
+            'face `(:foreground ,org-drill-mature-count-color))
+           (propertize
+            (format "%d old"
+                    (length *org-drill-old-mature-entries*))
+            'face `(:foreground ,org-drill-mature-count-color))
+           (format-seconds "%h:%.2m:%.2s"
+                           (- (float-time (current-time)) *org-drill-start-time*))
+           (round (* 100 (count 5 *org-drill-session-qualities*))
+                  (max 1 (length *org-drill-session-qualities*)))
+           (round (* 100 (count 2 *org-drill-session-qualities*))
+                  (max 1 (length *org-drill-session-qualities*)))
+           (round (* 100 (count 4 *org-drill-session-qualities*))
+                  (max 1 (length *org-drill-session-qualities*)))
+           (round (* 100 (count 1 *org-drill-session-qualities*))
+                  (max 1 (length *org-drill-session-qualities*)))
+           (round (* 100 (count 3 *org-drill-session-qualities*))
+                  (max 1 (length *org-drill-session-qualities*)))
+           (round (* 100 (count 0 *org-drill-session-qualities*))
+                  (max 1 (length *org-drill-session-qualities*)))
+           pass-percent
+           org-drill-failure-quality
+           ))
 
-  (while (not (input-pending-p))
+    (while (not (input-pending-p))
       (message "%s" prompt)
       (sit-for 0.5))
-  (read-char-exclusive)
+    (read-char-exclusive)
 
-  (if (< pass-percent (- 100 org-drill-forgetting-index))
-      (read-char-exclusive
-       (format
-        "%s
+    (if (< pass-percent (- 100 org-drill-forgetting-index))
+        (read-char-exclusive
+         (format
+          "%s
 You failed %d%% of the items you reviewed during this session.
+%d (%d%%) of all items scanned were overdue.
+
 Are you keeping up with your items, and reviewing them
 when they are scheduled? If so, you may want to consider
 lowering the value of `org-drill-learn-fraction' slightly in
 order to make items appear more frequently over time."
-        (propertize "WARNING!" 'face 'org-warning)
-        (- 100 pass-percent))))))
+          (propertize "WARNING!" 'face 'org-warning)
+          (- 100 pass-percent)
+          *org-drill-overdue-entry-count*
+          (round (* 100 *org-drill-overdue-entry-count*)
+                 (+ *org-drill-dormant-entry-count*
+                    *org-drill-due-entry-count*)))
+         ))))
 
 
-(defun org-drill (&optional scope)
+(defun org-drill (&optional scope resume-p)
   "Begin an interactive 'drill session'. The user is asked to
 review a series of topics (headers). Each topic is initially
 presented as a 'question', often with part of the topic content
@@ -1518,64 +1648,101 @@ agenda  All agenda files
 agenda-with-archives
         All agenda files with any archive files associated with them
  (file1 file2 ...)
-        If this is a list, all files in the list will be scanned."
+        If this is a list, all files in the list will be scanned.
+
+If RESUME-P is non-nil, resume a suspended drill session rather
+than starting a new one."
 
   (interactive)
   (let ((end-pos nil)
         (cnt 0))
     (block org-drill
-      (setq *org-drill-done-entries* nil
-            *org-drill-dormant-entry-count* 0
-            *org-drill-new-entries* nil
-            *org-drill-mature-entries* nil
-            *org-drill-failed-entries* nil
-            *org-drill-again-entries* nil)
-      (setq *org-drill-session-qualities* nil)
-      (setq *org-drill-start-time* (float-time (current-time)))
+      (unless resume-p
+        (setq *org-drill-current-item* nil
+              *org-drill-done-entries* nil
+              *org-drill-dormant-entry-count* 0
+              *org-drill-due-entry-count* 0
+              *org-drill-overdue-entry-count* 0
+              *org-drill-new-entries* nil
+              *org-drill-overdue-entries* nil
+              *org-drill-young-mature-entries* nil
+              *org-drill-old-mature-entries* nil
+              *org-drill-failed-entries* nil
+              *org-drill-again-entries* nil)
+        (setq *org-drill-session-qualities* nil)
+        (setq *org-drill-start-time* (float-time (current-time))))
       (unwind-protect
           (save-excursion
-            (let ((org-trust-scanner-tags t))
-              (org-map-entries
-               (lambda ()
-                 (when (zerop (% (incf cnt) 50))
-                   (message "Processing drill items: %4d%s"
-                            (+ (length *org-drill-new-entries*)
-                               (length *org-drill-mature-entries*)
-                               (length *org-drill-failed-entries*))
-                            (make-string (ceiling cnt 50) ?.)))
-                 (cond
-                  ((not (org-drill-entry-p))
-                   nil)                 ; skip
-                  ((not (org-drill-entry-due-p))
-                   (incf *org-drill-dormant-entry-count*))
-                  ((org-drill-entry-new-p)
-                   (push (point-marker) *org-drill-new-entries*))
-                  ((and (org-drill-entry-last-quality)
-                        (<= (org-drill-entry-last-quality)
-                            org-drill-failure-quality))
-                   (push (point-marker) *org-drill-failed-entries*))
-                  (t
-                   (push (point-marker) *org-drill-mature-entries*))))
-               (concat "+" org-drill-question-tag) scope))
+            (unless resume-p
+              (let ((org-trust-scanner-tags t))
+                (org-map-entries
+                 (lambda ()
+                   (when (zerop (% (incf cnt) 50))
+                     (message "Processing drill items: %4d%s"
+                              (+ (length *org-drill-new-entries*)
+                                 (length *org-drill-overdue-entries*)
+                                 (length *org-drill-young-mature-entries*)
+                                 (length *org-drill-old-mature-entries*)
+                                 (length *org-drill-failed-entries*))
+                              (make-string (ceiling cnt 50) ?.)))
+                   (let ((due (org-drill-entry-days-overdue))
+                         (last-int (org-drill-entry-last-interval 1)))
+                   (cond
+                    ((not (org-drill-entry-p))
+                     nil)               ; skip
+                    ((or (null due)     ; unscheduled - usually a skipped leech
+                         (minusp due))  ; scheduled in the future
+                     (incf *org-drill-dormant-entry-count*))
+                    ((org-drill-entry-new-p)
+                     (push (point-marker) *org-drill-new-entries*))
+                    ((<= (org-drill-entry-last-quality 9999)
+                         org-drill-failure-quality)
+                     ;; Mature entries that were failed last time are FAILED,
+                     ;; regardless of how young, old or overdue they are.
+                     (push (point-marker) *org-drill-failed-entries*))
+                    ((and (> due 1)     ; enforce a sane minimum 'overdue' gap
+                          ;;(> due org-drill-days-before-overdue)
+                          (> (/ (+ due last-int) last-int)
+                             org-drill-overdue-interval-factor))
+                     ;; Overdue status overrides young versus old distinction.
+                     (push (point-marker) *org-drill-overdue-entries*))
+                    ((<= (org-drill-entry-last-interval 9999)
+                         org-drill-days-before-old)
+                     ;; Item is 'young'.
+                     (push (point-marker) *org-drill-young-mature-entries*))
+                    (t
+                     (push (point-marker) *org-drill-old-mature-entries*)))))
+                 (concat "+" org-drill-question-tag) scope)))
+            (setq *org-drill-due-entry-count* (org-drill-pending-entry-count))
+            (setq *org-drill-overdue-entry-count*
+                  (length *org-drill-overdue-entries*))
             (cond
              ((and (null *org-drill-new-entries*)
                    (null *org-drill-failed-entries*)
-                   (null *org-drill-mature-entries*))
+                   (null *org-drill-overdue-entries*)
+                   (null *org-drill-young-mature-entries*)
+                   (null *org-drill-old-mature-entries*))
               (message "I did not find any pending drill items."))
              (t
-              (org-drill-entries)
+              (org-drill-entries resume-p)
               (message "Drill session finished!"))))
         (progn
-          (dolist (m (append *org-drill-new-entries*
-                             *org-drill-failed-entries*
-                             *org-drill-again-entries*
-                             *org-drill-mature-entries*))
-            (free-marker m)))))
+          (unless end-pos
+            (dolist (m (append  *org-drill-done-entries*
+                                *org-drill-new-entries*
+                                *org-drill-failed-entries*
+                                *org-drill-again-entries*
+                                *org-drill-overdue-entries*
+                                *org-drill-young-mature-entries*
+                                *org-drill-old-mature-entries*))
+              (free-marker m))))))
     (cond
      (end-pos
-      (switch-to-buffer (marker-buffer end-pos))
-      (goto-char (marker-position end-pos))
-      (message "Edit topic."))
+      (when (markerp end-pos)
+        (switch-to-buffer (marker-buffer end-pos))
+        (goto-char (marker-position end-pos)))
+      (message
+       "You can continue the drill session with `M-x org-drill-resume'."))
      (t
       (org-drill-final-report)
       (if (eql 'sm5 org-drill-spaced-repetition-algorithm)
@@ -1598,6 +1765,12 @@ hours."
   (let ((*org-drill-cram-mode* t))
     (org-drill scope)))
 
+
+(defun org-drill-resume ()
+  "Resume a suspended drill session. Sessions are suspended by
+exiting them with the `edit' option."
+  (interactive)
+  (org-drill nil t))
 
 
 (add-hook 'org-mode-hook

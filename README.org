@@ -1,15 +1,18 @@
 # -*- mode: org; coding: utf-8 -*-
 #+STARTUP: showall
 #+OPTIONS: num:nil
+# Make absolutely sure the emacs lisp examples below don't get spuriously evaluated
+#+BABEL: :exports code
 #+TITLE: Org-Drill
 #+AUTHOR: Paul Sexton
 
 * Synopsis
 
 
-Org-Drill uses the spaced repetition algorithm in =org-learn= to conduct
-interactive "drill sessions", using org files as sources of facts to be
-memorised. The material to be remembered is presented to the student in random
+Org-Drill is an extension for [[http://www.gnu.org/software/emacs/][GNU Emacs]] [[http://orgmode.org/][Org mode]]. Org-Drill uses a [[http://en.wikipedia.org/wiki/Spaced_repetition][spaced
+repetition]] algorithm to conduct interactive "drill sessions", using org files
+as sources of facts to be memorised. Each topic is treated as a "flash
+card". The material to be remembered is presented to the student in random
 order. The student rates his or her recall of each item, and this information
 is fed back to =org-learn= to schedule the item for later revision.
 
@@ -33,9 +36,9 @@ that use it, see:
 Put the following in your =.emacs=. You will also need to make sure that Org's
 "contrib/lisp" directory is in the emacs load-path.
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (require 'org-drill)
-#+END_SRC
+#+END_EXAMPLE
 
 
 
@@ -91,13 +94,13 @@ presented during a drill session, any subheadings are "collapsed" with their
 contents hidden. So, you could include the question as text beneath the main
 heading, and the answer within a subheading. For example:
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 * Item                                   :drill:
 What is the capital city of Estonia?
 
 ** The Answer
 Tallinn.
-#+END_SRC
+#+END_EXAMPLE
 
 When this item is presented for review, the text beneath the main heading will
 be visible, but the contents of the subheading ("The Answer") will be hidden.
@@ -115,10 +118,10 @@ will be obscured. The text is then revealed after the user presses a key. For
 example:
 
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 * Item                                   :drill:
 The capital city of Estonia is [Tallinn].
-#+END_SRC
+#+END_EXAMPLE
 
 During review, the user will see:
 
@@ -136,10 +139,10 @@ the rest of the text is hidden.
 
 Example:
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 Type 1 hypersensitivity reactions are mediated by [immunoglobulin E|molecule]
 and [mast cells|cell type].
-#+END_SRC
+#+END_EXAMPLE
 
 #+BEGIN_QUOTE
 Type 1 hypersensitivity reactions are mediated by
@@ -168,7 +171,7 @@ A two sided card can have more than 2 subheadings, but all subheadings after
 the first two are considered as "notes" and will always be hidden during topic
 review.
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 * Noun                                               :drill:
     :PROPERTIES:
     :DRILL_CARD_TYPE: twosided
@@ -185,7 +188,7 @@ the woman
 ** Example sentence
 ¿Quién fue esa mujer?
 Who was that woman?
-#+END_SRC
+#+END_EXAMPLE
 
 In this example, the user will be shown the main text -- "Translate this word"
 -- and either 'la mujer', /or/ 'the woman', at random. The section 'Example
@@ -201,7 +204,7 @@ The =multisided= card type is similar to =twosided=, except that any
 subheading has a chance of being presented during the topic review. One
 subheading is always shown and all others are always hidden.
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 * Noun                                               :drill:
     :PROPERTIES:
     :DRILL_CARD_TYPE: multisided
@@ -217,7 +220,7 @@ the table
 
 ** Picture
 [[file:table.jpg][PICTURE]]
-#+END_SRC
+#+END_EXAMPLE
 
 The user will be shown the main text and either 'la mujer', /or/ 'the woman',
 /or/ a picture of a table.
@@ -230,18 +233,18 @@ The user will be shown the main text and either 'la mujer', /or/ 'the woman',
 Often, you will wish to create cards out of sentences that express several
 facts, such as the following:
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 The capital city of New Zealand is Wellington, which is located in the
 South Island and has a population of about 400,000.
-#+END_SRC
+#+END_EXAMPLE
 
 There is more than one fact in this statement -- you could create a single
 'simple' card with all the facts marked as cloze text, like so:
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 The capital city of [New Zealand] is [Wellington], which is located in
 the [North|North/South] Island and has a population of about [400,000].
-#+END_SRC
+#+END_EXAMPLE
 
 But this card will be difficult to remember. If you get just one of the 4
 hidden facts wrong, you will fail the card. A card like this is likely to
@@ -251,7 +254,7 @@ A better way to express all these facts using 'simple' cards is to create
 several cards, with one fact per card. You might end up with something
 like this:
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 * Fact
 The capital city of [New Zealand] is Wellington, which has a population of
 about 400,000.
@@ -275,7 +278,7 @@ the North Island.
 * Fact
 The capital city of New Zealand is Wellington, which is located in
 the [North|North/South] Island.
-#+END_SRC
+#+END_EXAMPLE
 
 However, this is really cumbersome. The 'multicloze' card type exists for this
 situation. Multicloze cards behave like 'simple' cards, except that when there
@@ -288,7 +291,7 @@ but change its card type to 'multicloze'. Each time the card is presented for
 review, one of 'New Zealand', 'Wellington', 'the South Island' or '400,000'
 will be hidden.
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 * Fact
   :PROPERTIES:
   :DRILL_CARD_TYPE: multicloze
@@ -296,7 +299,7 @@ will be hidden.
 
 The capital city of [New Zealand] is [Wellington], which is located in
 the [North|North/South] Island and has a population of about [400,000].
-#+END_SRC
+#+END_EXAMPLE
 
 
 ** User-defined card types
@@ -335,20 +338,34 @@ During a drill session, you will be presented with each item, then asked to
 rate your recall of it by pressing a key between 0 and 5. The meaning of these
 numbers is (taken from =org-learn=):
 
-| Quality | SuperMemo label | Meaning                                    |
-|---------+-----------------+--------------------------------------------|
-|       0 | NULL            | You have forgotten this card completely.   |
-|       1 | BAD             | Wrong answer.                              |
-|       2 | FAIL            | Barely correct, the interval was too long. |
-|       3 | PASS            | Correct answer, but with much effort.      |
-|       4 | GOOD            | Correct answer, with a little thought.     |
-|       5 | BRIGHT          | Correct answer, effortless.                |
+| Quality | SuperMemo label | Fail? | Meaning                                              |
+|---------+-----------------+-------+------------------------------------------------------|
+|       0 | NULL            | Yes   | Wrong, and the answer is unfamiliar when you see it. |
+|       1 | BAD             | Yes   | Wrong answer.                                        |
+|       2 | FAIL            | Yes   | Almost, but not quite correct.                       |
+|       3 | PASS            | No    | Correct answer, but with much effort.                |
+|       4 | GOOD            | No    | Correct answer, with a little thought.               |
+|       5 | BRIGHT          | No    | Correct answer, effortless.                          |
 
 You can press '?'  at the prompt if you have trouble remembering what the
-numbers 0--5 signify. At any time you can press 'q' to finish the drill early
-(your progress will be saved), 's' to skip the current item without viewing the
-answer, or 'e' to finish the drill and jump to the current topic for editing
-(your progress up to that point will be saved).
+numbers 0--5 signify.
+
+At any time you can press 'q' to finish the drill early (your progress up to
+that point will be saved), 's' to skip the current item without viewing the
+answer, or 'e' to escape from the drill and jump to the current topic for
+editing (again, your progress up to that point will be saved).
+
+After exiting the drill session with 'e' or 'q', you can resume where you left
+off, using the command =org-drill-resume=. This will return you to the item
+that you were viewing when you left the session. For example, if you are shown
+an item and realise that it is poorly formulated, or contains an error, you can
+press 'e' to leave the drill, then correct the item, then press
+=M-x org-drill-resume= and continue where you left off.
+
+Note that 'drastic' edits, such as deleting or moving items, can sometimes
+cause Org-Drill to "lose its place" in the file, preventing it from
+successfully resuming the session. In that case you will need to start a new
+session.
 
 
 * Cram mode
@@ -404,23 +421,23 @@ Org-Drill has several settings which you change using
 settings by adding elisp code to your configuration file (=.emacs=).
 
 
-** Appearance of items during drill sessions
+** Visual appearance of items during drill sessions
 
 
 If you want cloze-deleted text to show up in a special font within Org mode
 buffers, add this to your .emacs:
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-drill-use-visible-cloze-face-p t)
-#+END_SRC
+#+END_EXAMPLE
 
 Item headings may contain information that "gives away" the answer to the item,
 either in the heading text or in tags. If you want item headings to be made
 invisible while each item is being tested, add:
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-drill-hide-item-headings-p t)
-#+END_SRC
+#+END_EXAMPLE
 
 
 ** Duration of drill sessions
@@ -430,14 +447,52 @@ By default, a drill session will end when either 30 items have been
 successfully reviewed, or 20 minutes have passed. To change this behaviour, use
 the following settings.
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-drill-maximum-items-per-session 40)
 (setq org-drill-maximum-duration 30)   ; 30 minutes
-#+END_SRC
+#+END_EXAMPLE
 
 If either of these variables is set to nil, then item count or elapsed time
 will not count as reasons to end the session. If both variables are nil, the
 session will not end until /all/ outstanding items have been reviewed.
+
+
+** Definition of old and overdue items
+
+
+Org-Drill prioritises /overdue/ items in each drill session, presenting them
+before other items are seen. Overdue items are defined in terms of how far in
+the past the item is scheduled for review. The threshold is defined in terms
+of a proportion rather than an absolute number of days. If days overdue is
+greater than
+
+: last-interval * (factor - 1)
+
+and is at least one day overdue, then the item is considered 'overdue'. The
+default factor is 1.2, meaning that the due date can overrun by 20% before the
+item is considered overdue.
+
+To change the factor that determines when items become overdue, use something
+like the following in your .emacs. Note that the value should never be less
+than 1.0.
+
+#+BEGIN_EXAMPLE
+(setq org-drill-overdue-interval-factor 1.1)
+#+END_EXAMPLE
+
+After prioritising overdue items, Org-Drill next prioritises /young/
+items. These are items which were recently learned (or relearned in the case of
+a failure), and which therefore have short inter-repetition intervals.
+"Recent" is defined as an inter-repetition interval less than a fixed number of
+days, rather than a number of repetitions. This ensures that more difficult
+items are reviewed more often than easier items before they stop being 'young'.
+
+The default definition of a young item is one with an inter-repetition interval
+of 10 days or less. To change this, use the following:
+
+#+BEGIN_EXAMPLE
+(setq org-drill-days-before-old 7)
+#+END_EXAMPLE
 
 
 ** Spaced repetition algorithm
@@ -466,9 +521,9 @@ SuperMemo algorithms. These are:
 If you want Org-Drill to use the =SM2= algorithm, put the following in your
 =.emacs=:
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-drill-spaced-repetition-algorithm 'sm2)
-#+END_SRC
+#+END_EXAMPLE
 
 
 *** Random variation of repetition intervals
@@ -488,9 +543,9 @@ To enable random "noise" for item intervals, set the variable
 =org-drill-add-random-noise-to-intervals-p= to true by putting the following in
 your =.emacs=:
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-drill-add-random-noise-to-intervals-p t)
-#+END_SRC
+#+END_EXAMPLE
 
 
 *** Adjustment for early or late review of items
@@ -500,9 +555,9 @@ Reviewing items earlier or later than their scheduled review date may affect
 how soon the next review date should be scheduled. Code to make this adjustment
 is also presented on the SuperMemo website. It can be enabled with:
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-drill-adjust-intervals-for-early-and-late-repetitions-p t)
-#+END_SRC
+#+END_EXAMPLE
 
 This will affect both early and late repetitions if the Simple8 algorithm is
 used. For the SM5 algorithm it will affect early repetitions only. It has no
@@ -536,9 +591,9 @@ successfully recalled each time, with an average quality of just under 4.
 
 To alter the learn fraction, put the following in your .emacs:
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-drill-learn-fraction 0.45)   ; change the value as desired
-#+END_SRC
+#+END_EXAMPLE
 
 
 ** Per-file customisation settings
@@ -548,12 +603,12 @@ Most of the above settings are safe as file-local variables. This means you can
 include a commented section like this at the end of your .org file to apply
 special settings when running a Drill session using that file:
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 # Local Variables:
 # org-drill-maximum-items-per-session:    50
 # org-drill-spaced-repetition-algorithm:  simple8
 # End:
-#+END_SRC org
+#+END_EXAMPLE
 
 
 * Incremental reading
@@ -581,7 +636,7 @@ An example of using Org-Drill for incremental reading is given below. First,
 and most importantly, we need to define a couple of =org-capture= templates for
 captured facts.
 
-#+BEGIN_SRC elisp
+#+BEGIN_EXAMPLE
 (setq org-capture-templates
        `(("u"
          "Task: Read this URL"
@@ -602,7 +657,7 @@ captured facts.
          :immediate-finish t)
         ;; ...other capture templates...
     ))
-#+END_SRC
+#+END_EXAMPLE
 
 Using these templates and =org-protocol=, you can set up buttons in your web
 browser to:
@@ -654,12 +709,12 @@ your "fact" file in Emacs. You should see that each piece of text you selected
 has been turned into a drill item. Continuing the above example, you would see
 something like:
 
-#+BEGIN_SRC org
+#+BEGIN_EXAMPLE
 ** Fact: 'Tuberculosis - Wikipedia, the Free Encyclopedia'        :drill:
 
 Prevention relies on screening programs and vaccination, usually with Bacillus
 Calmette-Guérin vaccine.
-#+END_SRC
+#+END_EXAMPLE
 
 You need to edit this fact so it makes sense independent of its context, as
 that is how it will be presented to you in future. The easiest way to turn the

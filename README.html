@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Org-Drill</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2011-04-08 16:00:36 "/>
+<meta name="generated" content="2011-04-13 11:23:22 "/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -83,7 +83,6 @@ lang="en" xml:lang="en">
 
 <h1 class="title">Org-Drill</h1>
 
-
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
@@ -106,17 +105,18 @@ lang="en" xml:lang="en">
 <li><a href="#sec-7">Leeches </a></li>
 <li><a href="#sec-8">Customisation </a>
 <ul>
-<li><a href="#sec-8_1">Appearance of items during drill sessions </a></li>
+<li><a href="#sec-8_1">Visual appearance of items during drill sessions </a></li>
 <li><a href="#sec-8_2">Duration of drill sessions </a></li>
-<li><a href="#sec-8_3">Spaced repetition algorithm </a>
+<li><a href="#sec-8_3">Definition of old and overdue items </a></li>
+<li><a href="#sec-8_4">Spaced repetition algorithm </a>
 <ul>
-<li><a href="#sec-8_3_1">Choice of algorithm </a></li>
-<li><a href="#sec-8_3_2">Random variation of repetition intervals </a></li>
-<li><a href="#sec-8_3_3">Adjustment for early or late review of items </a></li>
-<li><a href="#sec-8_3_4">Adjusting item difficulty globally </a></li>
+<li><a href="#sec-8_4_1">Choice of algorithm </a></li>
+<li><a href="#sec-8_4_2">Random variation of repetition intervals </a></li>
+<li><a href="#sec-8_4_3">Adjustment for early or late review of items </a></li>
+<li><a href="#sec-8_4_4">Adjusting item difficulty globally </a></li>
 </ul>
 </li>
-<li><a href="#sec-8_4">Per-file customisation settings </a></li>
+<li><a href="#sec-8_5">Per-file customisation settings </a></li>
 </ul>
 </li>
 <li><a href="#sec-9">Incremental reading </a></li>
@@ -131,9 +131,9 @@ lang="en" xml:lang="en">
 
 
 <p>
-Org-Drill uses the spaced repetition algorithm in <code>org-learn</code> to conduct
-interactive "drill sessions", using org files as sources of facts to be
-memorised. The material to be remembered is presented to the student in random
+Org-Drill is an extension for <a href="http://www.gnu.org/software/emacs/">GNU Emacs</a> <a href="http://orgmode.org/">Org mode</a>. Org-Drill uses a <a href="http://en.wikipedia.org/wiki/Spaced_repetition">spaced repetition</a> algorithm to conduct interactive "drill sessions", using org files
+as sources of facts to be memorised. Each topic is treated as a "flash
+card". The material to be remembered is presented to the student in random
 order. The student rates his or her recall of each item, and this information
 is fed back to <code>org-learn</code> to schedule the item for later revision.
 </p>
@@ -150,18 +150,13 @@ student in different ways.
 For more on the spaced repetition algorithm, and examples of other programs
 that use it, see:
 </p><ul>
-<li>
-<a href="http://supermemo.com/index.htm">SuperMemo</a> (see descriptions of the SM2, SM5 and SM8 algorithms)
+<li><a href="http://supermemo.com/index.htm">SuperMemo</a> (see descriptions of the SM2, SM5 and SM8 algorithms)
 </li>
-<li>
-<a href="http://ichi2.net/anki/">Anki</a>
+<li><a href="http://ichi2.net/anki/">Anki</a>
 </li>
-<li>
-<a href="http://mnemosyne-proj.org/index.php">Mnemosyne</a>
-
+<li><a href="http://mnemosyne-proj.org/index.php">Mnemosyne</a>
 </li>
 </ul>
-
 
 </div>
 
@@ -240,17 +235,13 @@ This will be adequate for some items, but usually you will want to write items
 where you have more control over what information is hidden from the user for
 recall purposes. For this reason, some other card types are defined, including:
 </p><ul>
-<li>
-<a href="#sec-4_3">Two-sided cards</a>
+<li><a href="#sec-4_3">Two-sided cards</a>
 </li>
-<li>
-<a href="#sec-4_4">Multi-sided cards</a>
+<li><a href="#sec-4_4">Multi-sided cards</a>
 </li>
-<li>
-<a href="#Multicloze--cards">Multicloze cards</a>
+<li><a href="#Multicloze-cards">Multicloze cards</a>
 </li>
-<li>
-<a href="#sec-4_6">User-defined card types</a>
+<li><a href="#sec-4_6">User-defined card types</a>
 </li>
 </ul>
 
@@ -281,11 +272,11 @@ heading, and the answer within a subheading. For example:
 
 
 
-<pre class="src src-org"><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Item                                   </span><span style="color: #66cdaa; background-color: #4169e1; font-weight: bold;">:drill:</span><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">
-</span>What is the capital city of Estonia?
+<pre class="example">* Item                                   :drill:
+What is the capital city of Estonia?
 
-<span style="color: #4876ff; background-color: #000080; font-weight: bold;">** The Answer
-</span>Tallinn.
+** The Answer
+Tallinn.
 </pre>
 
 
@@ -318,8 +309,8 @@ example:
 
 
 
-<pre class="src src-org"><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Item                                   </span><span style="color: #66cdaa; background-color: #4169e1; font-weight: bold;">:drill:</span><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">
-</span>The capital city of Estonia is <span style="color: #ab82ff;">[Tallinn]</span>.
+<pre class="example">* Item                                   :drill:
+The capital city of Estonia is [Tallinn].
 </pre>
 
 
@@ -350,8 +341,8 @@ Example:
 
 
 
-<pre class="src src-org">Type 1 hypersensitivity reactions are mediated by <span style="color: #ab82ff;">[immunoglobulin E</span><span style="color: #483d8b;">|molecule</span><span style="color: #ab82ff;">]</span>
-and <span style="color: #ab82ff;">[mast cells</span><span style="color: #483d8b;">|cell type</span><span style="color: #ab82ff;">]</span>.
+<pre class="example">Type 1 hypersensitivity reactions are mediated by [immunoglobulin E|molecule]
+and [mast cells|cell type].
 </pre>
 
 
@@ -373,7 +364,7 @@ and <font style="background-color: blue;" color="cyan">
 </div>
 
 <div id="outline-container-4_3" class="outline-3">
-<h3 id="sec-4_3"><a name="Two-sided--cards" id="Two-sided--cards"></a>Two-sided cards </h3>
+<h3 id="sec-4_3"><a name="Two-sided-cards" id="Two-sided-cards"></a>Two-sided cards </h3>
 <div class="outline-text-3" id="text-4_3">
 
 
@@ -398,21 +389,21 @@ review.
 
 
 
-<pre class="src src-org"><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Noun                                               </span><span style="color: #66cdaa; background-color: #4169e1; font-weight: bold;">:drill:</span><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">
-</span><span style="color: #8b4789;">    :PROPERTIES:</span>
-    <span style="color: #8b4789;">:DRILL_CARD_TYPE:</span> <span style="color: #006400;">twosided</span>
-<span style="color: #8b4789;">    :END:</span>
+<pre class="example">* Noun                                               :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: twosided
+    :END:
 
 Translate this word.
 
-<span style="color: #4876ff; background-color: #000080; font-weight: bold;">** Spanish
-</span>la mujer
+** Spanish
+la mujer
 
-<span style="color: #4876ff; background-color: #000080; font-weight: bold;">** English
-</span>the woman
+** English
+the woman
 
-<span style="color: #4876ff; background-color: #000080; font-weight: bold;">** Example sentence
-</span>&#191;Qui&#233;n fue esa mujer?
+** Example sentence
+¿Quién fue esa mujer?
 Who was that woman?
 </pre>
 
@@ -430,7 +421,7 @@ not one of the first two 'sides' of the topic.
 </div>
 
 <div id="outline-container-4_4" class="outline-3">
-<h3 id="sec-4_4"><a name="Multi-sided--cards" id="Multi-sided--cards"></a>Multi-sided cards </h3>
+<h3 id="sec-4_4"><a name="Multi-sided-cards" id="Multi-sided-cards"></a>Multi-sided cards </h3>
 <div class="outline-text-3" id="text-4_4">
 
 
@@ -443,21 +434,21 @@ subheading is always shown and all others are always hidden.
 
 
 
-<pre class="src src-org"><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Noun                                               </span><span style="color: #66cdaa; background-color: #4169e1; font-weight: bold;">:drill:</span><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">
-</span><span style="color: #8b4789;">    :PROPERTIES:</span>
-    <span style="color: #8b4789;">:DRILL_CARD_TYPE:</span> <span style="color: #006400;">multisided</span>
-<span style="color: #8b4789;">    :END:</span>
+<pre class="example">* Noun                                               :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: multisided
+    :END:
 
 Translate.
 
-<span style="color: #4876ff; background-color: #000080; font-weight: bold;">** Spanish
-</span>la mesa
+** Spanish
+la mesa
 
-<span style="color: #4876ff; background-color: #000080; font-weight: bold;">** English
-</span>the table
+** English
+the table
 
-<span style="color: #4876ff; background-color: #000080; font-weight: bold;">** Picture
-</span><span style="color: #00bfff; text-decoration: underline;">PICTURE</span>
+** Picture
+[[file:table.jpg][PICTURE]]
 </pre>
 
 
@@ -472,7 +463,7 @@ The user will be shown the main text and either 'la mujer', <i>or</i> 'the woman
 </div>
 
 <div id="outline-container-4_5" class="outline-3">
-<h3 id="sec-4_5"><a name="Multi-cloze--cards" id="Multi-cloze--cards"></a>Multi-cloze cards </h3>
+<h3 id="sec-4_5"><a name="Multi-cloze-cards" id="Multi-cloze-cards"></a>Multi-cloze cards </h3>
 <div class="outline-text-3" id="text-4_5">
 
 
@@ -484,7 +475,7 @@ facts, such as the following:
 
 
 
-<pre class="src src-org">The capital city of New Zealand is Wellington, which is located in the
+<pre class="example">The capital city of New Zealand is Wellington, which is located in the
 South Island and has a population of about 400,000.
 </pre>
 
@@ -497,8 +488,8 @@ There is more than one fact in this statement &ndash; you could create a single
 
 
 
-<pre class="src src-org">The capital city of <span style="color: #ab82ff;">[New Zealand]</span> is <span style="color: #ab82ff;">[Wellington]</span>, which is located in
-the <span style="color: #ab82ff;">[North</span><span style="color: #483d8b;">|North/South</span><span style="color: #ab82ff;">]</span> Island and has a population of about <span style="color: #ab82ff;">[400,000]</span>.
+<pre class="example">The capital city of [New Zealand] is [Wellington], which is located in
+the [North|North/South] Island and has a population of about [400,000].
 </pre>
 
 
@@ -516,29 +507,29 @@ like this:
 
 
 
-<pre class="src src-org"><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Fact
-</span>The capital city of <span style="color: #ab82ff;">[New Zealand]</span> is Wellington, which has a population of
+<pre class="example">* Fact
+The capital city of [New Zealand] is Wellington, which has a population of
 about 400,000.
 
-<span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Fact
-</span>The capital city of New Zealand is <span style="color: #ab82ff;">[Wellington]</span>, which has a population of
+* Fact
+The capital city of New Zealand is [Wellington], which has a population of
 about 400,000.
 
-<span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Fact
-</span>The capital city of New Zealand is Wellington, which has a population of
-about <span style="color: #ab82ff;">[400,000]</span>.
+* Fact
+The capital city of New Zealand is Wellington, which has a population of
+about [400,000].
 
-<span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Fact
-</span>The capital city of <span style="color: #ab82ff;">[New Zealand]</span> is Wellington, which is located in the
+* Fact
+The capital city of [New Zealand] is Wellington, which is located in the
 the North Island.
 
-<span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Fact
-</span>The capital city of New Zealand is <span style="color: #ab82ff;">[Wellington]</span>, which is located in
+* Fact
+The capital city of New Zealand is [Wellington], which is located in
 the North Island.
 
-<span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Fact
-</span>The capital city of New Zealand is Wellington, which is located in
-the <span style="color: #ab82ff;">[North</span><span style="color: #483d8b;">|North/South</span><span style="color: #ab82ff;">]</span> Island.
+* Fact
+The capital city of New Zealand is Wellington, which is located in
+the [North|North/South] Island.
 </pre>
 
 
@@ -559,13 +550,13 @@ will be hidden.
 
 
 
-<pre class="src src-org"><span style="color: #f0ffff; background-color: #4169e1; font-weight: bold;">* Fact
-</span><span style="color: #8b4789;">  :PROPERTIES:</span>
-  <span style="color: #8b4789;">:DRILL_CARD_TYPE:</span> <span style="color: #006400;">multicloze</span>
-<span style="color: #8b4789;">  :END:</span>
+<pre class="example">* Fact
+  :PROPERTIES:
+  :DRILL_CARD_TYPE: multicloze
+  :END:
 
-The capital city of <span style="color: #ab82ff;">[New Zealand]</span> is <span style="color: #ab82ff;">[Wellington]</span>, which is located in
-the <span style="color: #ab82ff;">[North</span><span style="color: #483d8b;">|North/South</span><span style="color: #ab82ff;">]</span> Island and has a population of about <span style="color: #ab82ff;">[400,000]</span>.
+The capital city of [New Zealand] is [Wellington], which is located in
+the [North|North/South] Island and has a population of about [400,000].
 </pre>
 
 
@@ -576,7 +567,7 @@ the <span style="color: #ab82ff;">[North</span><span style="color: #483d8b;">|No
 </div>
 
 <div id="outline-container-4_6" class="outline-3">
-<h3 id="sec-4_6"><a name="User-defined--card--types" id="User-defined--card--types"></a>User-defined card types </h3>
+<h3 id="sec-4_6"><a name="User-defined-card-types" id="User-defined-card-types"></a>User-defined card types </h3>
 <div class="outline-text-3" id="text-4_6">
 
 
@@ -612,25 +603,19 @@ argument, SCOPE, which allows it to take drill items from other
 sources. Possible values for SCOPE are:
 </p>
 <dl>
-<dt>tree</dt><dd>
-The subtree starting with the entry at the cursor.
+<dt>tree</dt><dd>The subtree starting with the entry at the cursor.
 </dd>
-<dt>file</dt><dd>
-The current buffer, including both hidden and non-hidden items.
+<dt>file</dt><dd>The current buffer, including both hidden and non-hidden items.
 </dd>
-<dt>file-with-archives</dt><dd>
-The current buffer, and any archives associated with it.
+<dt>file-with-archives</dt><dd>The current buffer, and any archives associated with it.
 </dd>
-<dt>agenda</dt><dd>
-All agenda files.
+<dt>agenda</dt><dd>All agenda files.
 </dd>
-<dt>agenda-with-archives</dt><dd>
-All agenda files with any archive files associated
-with them.
+<dt>agenda-with-archives</dt><dd>All agenda files with any archive files associated
+     with them.
 </dd>
-<dt>(file1 file2 &hellip;)</dt><dd>
-A list of filenames. All files in the list will be
-scanned.
+<dt>(file1 file2 &hellip;)</dt><dd>A list of filenames. All files in the list will be
+     scanned.
 </dd>
 </dl>
 
@@ -642,28 +627,45 @@ numbers is (taken from <code>org-learn</code>):
 </p>
 <table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 <caption></caption>
-<colgroup><col class="right" /><col class="left" /><col class="left" />
+<colgroup><col class="right" /><col class="left" /><col class="left" /><col class="left" />
 </colgroup>
 <thead>
-<tr><th scope="col" class="right">Quality</th><th scope="col" class="left">SuperMemo label</th><th scope="col" class="left">Meaning</th></tr>
+<tr><th scope="col" class="right">Quality</th><th scope="col" class="left">SuperMemo label</th><th scope="col" class="left">Fail?</th><th scope="col" class="left">Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td class="right">0</td><td class="left">NULL</td><td class="left">You have forgotten this card completely.</td></tr>
-<tr><td class="right">1</td><td class="left">BAD</td><td class="left">Wrong answer.</td></tr>
-<tr><td class="right">2</td><td class="left">FAIL</td><td class="left">Barely correct, the interval was too long.</td></tr>
-<tr><td class="right">3</td><td class="left">PASS</td><td class="left">Correct answer, but with much effort.</td></tr>
-<tr><td class="right">4</td><td class="left">GOOD</td><td class="left">Correct answer, with a little thought.</td></tr>
-<tr><td class="right">5</td><td class="left">BRIGHT</td><td class="left">Correct answer, effortless.</td></tr>
+<tr><td class="right">0</td><td class="left">NULL</td><td class="left">Yes</td><td class="left">Wrong, and the answer is unfamiliar when you see it.</td></tr>
+<tr><td class="right">1</td><td class="left">BAD</td><td class="left">Yes</td><td class="left">Wrong answer.</td></tr>
+<tr><td class="right">2</td><td class="left">FAIL</td><td class="left">Yes</td><td class="left">Almost, but not quite correct.</td></tr>
+<tr><td class="right">3</td><td class="left">PASS</td><td class="left">No</td><td class="left">Correct answer, but with much effort.</td></tr>
+<tr><td class="right">4</td><td class="left">GOOD</td><td class="left">No</td><td class="left">Correct answer, with a little thought.</td></tr>
+<tr><td class="right">5</td><td class="left">BRIGHT</td><td class="left">No</td><td class="left">Correct answer, effortless.</td></tr>
 </tbody>
 </table>
 
 
 <p>
 You can press '?'  at the prompt if you have trouble remembering what the
-numbers 0&ndash;5 signify. At any time you can press 'q' to finish the drill early
-(your progress will be saved), 's' to skip the current item without viewing the
-answer, or 'e' to finish the drill and jump to the current topic for editing
-(your progress up to that point will be saved).
+numbers 0&ndash;5 signify.
+</p>
+<p>
+At any time you can press 'q' to finish the drill early (your progress up to
+that point will be saved), 's' to skip the current item without viewing the
+answer, or 'e' to escape from the drill and jump to the current topic for
+editing (again, your progress up to that point will be saved).
+</p>
+<p>
+After exiting the drill session with 'e' or 'q', you can resume where you left
+off, using the command <code>org-drill-resume</code>. This will return you to the item
+that you were viewing when you left the session. For example, if you are shown
+an item and realise that it is poorly formulated, or contains an error, you can
+press 'e' to leave the drill, then correct the item, then press
+<code>M-x org-drill-resume</code> and continue where you left off.
+</p>
+<p>
+Note that 'drastic' edits, such as deleting or moving items, can sometimes
+cause Org-Drill to "lose its place" in the file, preventing it from
+successfully resuming the session. In that case you will need to start a new
+session.
 </p>
 
 </div>
@@ -719,16 +721,13 @@ Leech items can be handled in one of three ways. You can choose how Org-Drill
 handles leeches by setting the variable <code>org-drill-leech-method</code> to one of the
 following values:
 </p><dl>
-<dt>nil</dt><dd>
-Leech items are tagged with the <code>leech</code> tag, but otherwise treated the
-same as normal items.
+<dt>nil</dt><dd>Leech items are tagged with the <code>leech</code> tag, but otherwise treated the
+         same as normal items.
 </dd>
-<dt>skip</dt><dd>
-Leech items are not included in drill sessions.
+<dt>skip</dt><dd>Leech items are not included in drill sessions.
 </dd>
-<dt>warn</dt><dd>
-Leech items are still included in drill sessions, but a warning
-message is printed when each leech item is presented.
+<dt>warn</dt><dd>Leech items are still included in drill sessions, but a warning
+  message is printed when each leech item is presented.
 </dd>
 </dl>
 
@@ -762,7 +761,7 @@ settings by adding elisp code to your configuration file (<code>.emacs</code>).
 </div>
 
 <div id="outline-container-8_1" class="outline-3">
-<h3 id="sec-8_1">Appearance of items during drill sessions </h3>
+<h3 id="sec-8_1">Visual appearance of items during drill sessions </h3>
 <div class="outline-text-3" id="text-8_1">
 
 
@@ -828,17 +827,78 @@ session will not end until <i>all</i> outstanding items have been reviewed.
 </div>
 
 <div id="outline-container-8_3" class="outline-3">
-<h3 id="sec-8_3">Spaced repetition algorithm </h3>
+<h3 id="sec-8_3">Definition of old and overdue items </h3>
 <div class="outline-text-3" id="text-8_3">
+
+
+
+<p>
+Org-Drill prioritises <i>overdue</i> items in each drill session, presenting them
+before other items are seen. Overdue items are defined in terms of how far in
+the past the item is scheduled for review. The threshold is defined in terms
+of a proportion rather than an absolute number of days. If days overdue is
+greater than
+</p>
+<pre class="example">
+last-interval * (factor - 1)
+</pre>
+
+
+<p>
+and is at least one day overdue, then the item is considered 'overdue'. The
+default factor is 1.2, meaning that the due date can overrun by 20% before the
+item is considered overdue.
+</p>
+<p>
+To change the factor that determines when items become overdue, use something
+like the following in your .emacs. Note that the value should never be less
+than 1.0.
+</p>
+
+
+
+<pre class="example">(setq org-drill-overdue-interval-factor 1.1)
+</pre>
+
+
+
+<p>
+After prioritising overdue items, Org-Drill next prioritises <i>young</i>
+items. These are items which were recently learned (or relearned in the case of
+a failure), and which therefore have short inter-repetition intervals.
+"Recent" is defined as an inter-repetition interval less than a fixed number of
+days, rather than a number of repetitions. This ensures that more difficult
+items are reviewed more often than easier items before they stop being 'young'.
+</p>
+<p>
+The default definition of a young item is one with an inter-repetition interval
+of 10 days or less. To change this, use the following:
+</p>
+
+
+
+<pre class="example">(setq org-drill-days-before-old 7)
+</pre>
 
 
 
 
 </div>
 
-<div id="outline-container-8_3_1" class="outline-4">
-<h4 id="sec-8_3_1">Choice of algorithm </h4>
-<div class="outline-text-4" id="text-8_3_1">
+</div>
+
+<div id="outline-container-8_4" class="outline-3">
+<h3 id="sec-8_4">Spaced repetition algorithm </h3>
+<div class="outline-text-3" id="text-8_4">
+
+
+
+
+</div>
+
+<div id="outline-container-8_4_1" class="outline-4">
+<h4 id="sec-8_4_1">Choice of algorithm </h4>
+<div class="outline-text-4" id="text-8_4_1">
 
 
 
@@ -846,31 +906,25 @@ session will not end until <i>all</i> outstanding items have been reviewed.
 Org-Drill supports three different spaced repetition algorithms, all based on
 SuperMemo algorithms. These are:
 </p><dl>
-<dt><a href="http://www.supermemo.com/english/ol/sm2.htm">SM2</a></dt><dd>
-an early algorithm, used in SuperMemo 2.0 (1988), which remains very
-popular &ndash; Anki and Mnemosyne, two of the most popular spaced repetition
-programs, use SM2. This algorithm stores an 'ease factor' for each item,
-which is modified each time you rate your recall of the item.
+<dt><a href="http://www.supermemo.com/english/ol/sm2.htm">SM2</a></dt><dd>an early algorithm, used in SuperMemo 2.0 (1988), which remains very
+  popular &ndash; Anki and Mnemosyne, two of the most popular spaced repetition
+  programs, use SM2. This algorithm stores an 'ease factor' for each item,
+  which is modified each time you rate your recall of the item.
 </dd>
-<dt><a href="http://www.supermemo.com/english/ol/sm5.htm">SM5</a> (default)</dt><dd>
-used in SuperMemo 5.0 (1989). This algorithm uses 'ease
-factors' but also uses a persistent, per-user 'matrix of optimal factors'
-which is also modified after each item repetition.
+<dt><a href="http://www.supermemo.com/english/ol/sm5.htm">SM5</a> (default)</dt><dd>used in SuperMemo 5.0 (1989). This algorithm uses 'ease
+     factors' but also uses a persistent, per-user 'matrix of optimal factors'
+     which is also modified after each item repetition.
 </dd>
-<dt>Simple8</dt><dd>
-an experimental algorithm based on the <a href="http://www.supermemo.com/english/algsm8.htm">SM8</a> algorithm. SM8 is used
-in SuperMemo 8.0 (1998) and is almost identical to SM11 which is
-used in SuperMemo 2002. Like SM5, it uses a matrix of optimal
-factors. Simple8 differs from SM8 in that it does not adapt the
-matrix to the individual user, though it does adapt each item's
-'ease factor'.
-
+<dt>Simple8</dt><dd>an experimental algorithm based on the <a href="http://www.supermemo.com/english/algsm8.htm">SM8</a> algorithm. SM8 is used
+             in SuperMemo 8.0 (1998) and is almost identical to SM11 which is
+             used in SuperMemo 2002. Like SM5, it uses a matrix of optimal
+             factors. Simple8 differs from SM8 in that it does not adapt the
+             matrix to the individual user, though it does adapt each item's
+             'ease factor'.
 </dd>
 </dl>
 
-
-<p>
-If you want Org-Drill to use the <code>SM2</code> algorithm, put the following in your
+<p>If you want Org-Drill to use the <code>SM2</code> algorithm, put the following in your
 <code>.emacs</code>:
 </p>
 
@@ -886,9 +940,9 @@ If you want Org-Drill to use the <code>SM2</code> algorithm, put the following i
 
 </div>
 
-<div id="outline-container-8_3_2" class="outline-4">
-<h4 id="sec-8_3_2">Random variation of repetition intervals </h4>
-<div class="outline-text-4" id="text-8_3_2">
+<div id="outline-container-8_4_2" class="outline-4">
+<h4 id="sec-8_4_2">Random variation of repetition intervals </h4>
+<div class="outline-text-4" id="text-8_4_2">
 
 
 
@@ -922,9 +976,9 @@ your <code>.emacs</code>:
 
 </div>
 
-<div id="outline-container-8_3_3" class="outline-4">
-<h4 id="sec-8_3_3">Adjustment for early or late review of items </h4>
-<div class="outline-text-4" id="text-8_3_3">
+<div id="outline-container-8_4_3" class="outline-4">
+<h4 id="sec-8_4_3">Adjustment for early or late review of items </h4>
+<div class="outline-text-4" id="text-8_4_3">
 
 
 
@@ -951,9 +1005,9 @@ effect on the SM2 algorithm.
 
 </div>
 
-<div id="outline-container-8_3_4" class="outline-4">
-<h4 id="sec-8_3_4">Adjusting item difficulty globally </h4>
-<div class="outline-text-4" id="text-8_3_4">
+<div id="outline-container-8_4_4" class="outline-4">
+<h4 id="sec-8_4_4">Adjusting item difficulty globally </h4>
+<div class="outline-text-4" id="text-8_4_4">
 
 
 
@@ -995,8 +1049,8 @@ To alter the learn fraction, put the following in your .emacs:
 
 
 
-<pre class="src src-elisp"><span style="color: #696969;">(</span>setq org-drill-learn-fraction 0.45<span style="color: #696969;">)</span>   <span style="color: #db7093;">; </span><span style="color: #db7093;">change the value as desired
-</span></pre>
+<pre class="example">(setq org-drill-learn-fraction 0.45)   ; change the value as desired
+</pre>
 
 
 
@@ -1006,9 +1060,9 @@ To alter the learn fraction, put the following in your .emacs:
 
 </div>
 
-<div id="outline-container-8_4" class="outline-3">
-<h3 id="sec-8_4">Per-file customisation settings </h3>
-<div class="outline-text-3" id="text-8_4">
+<div id="outline-container-8_5" class="outline-3">
+<h3 id="sec-8_5">Per-file customisation settings </h3>
+<div class="outline-text-3" id="text-8_5">
 
 
 
@@ -1020,10 +1074,10 @@ special settings when running a Drill session using that file:
 
 
 
-<pre class="src src-org"><span style="color: #db7093;"># Local Variables&#58;</span>
-<span style="color: #db7093;"># org-drill-maximum-items-per-session:    50</span>
-<span style="color: #db7093;"># org-drill-spaced-repetition-algorithm:  simple8</span>
-<span style="color: #db7093;"># End:</span>
+<pre class="example"># Local Variables:
+# org-drill-maximum-items-per-session:    50
+# org-drill-spaced-repetition-algorithm:  simple8
+# End:
 </pre>
 
 
@@ -1069,26 +1123,26 @@ captured facts.
 
 
 
-<pre class="src src-elisp"><span style="color: #696969;">(</span>setq org-capture-templates
-       `<span style="color: #696969;">((</span><span style="color: #008b00;">"u"</span>
-         <span style="color: #008b00;">"Task: Read this URL"</span>
+<pre class="example">(setq org-capture-templates
+       `(("u"
+         "Task: Read this URL"
          entry
-         <span style="color: #696969;">(</span>file+headline <span style="color: #008b00;">"tasks.org"</span> <span style="color: #008b00;">"Articles To Read"</span><span style="color: #696969;">)</span>
-         ,<span style="color: #696969;">(</span>concat <span style="color: #008b00;">"* TODO Read article: '%:description'\nURL: %c\n\n"</span><span style="color: #696969;">)</span>
-         <span style="color: #4169e1;">:empty-lines</span> 1
-         <span style="color: #4169e1;">:immediate-finish</span> t<span style="color: #696969;">)</span>
+         (file+headline "tasks.org" "Articles To Read")
+         ,(concat "* TODO Read article: '%:description'\nURL: %c\n\n")
+         :empty-lines 1
+         :immediate-finish t)
 
-        <span style="color: #696969;">(</span><span style="color: #008b00;">"w"</span>
-         <span style="color: #008b00;">"Capture web snippet"</span>
+        ("w"
+         "Capture web snippet"
          entry
-         <span style="color: #696969;">(</span>file+headline <span style="color: #008b00;">"my-facts.org"</span> <span style="color: #008b00;">"Inbox"</span><span style="color: #696969;">)</span>
-         ,<span style="color: #696969;">(</span>concat <span style="color: #008b00;">"* Fact: '%:description'        :"</span>
-                  <span style="color: #696969;">(</span>format <span style="color: #008b00;">"%s"</span> org-drill-question-tag<span style="color: #696969;">)</span>
-                  <span style="color: #008b00;">":\n:PROPERTIES:\n:DATE_ADDED: %u\n:SOURCE_URL: %c\n:END:\n\n%i\n%?\n"</span><span style="color: #696969;">)</span>
-         <span style="color: #4169e1;">:empty-lines</span> 1
-         <span style="color: #4169e1;">:immediate-finish</span> t<span style="color: #696969;">)</span>
-        <span style="color: #db7093;">;; </span><span style="color: #db7093;">...other capture templates...
-</span>    <span style="color: #696969;">))</span>
+         (file+headline "my-facts.org" "Inbox")
+         ,(concat "* Fact: '%:description'        :"
+                  (format "%s" org-drill-question-tag)
+                  ":\n:PROPERTIES:\n:DATE_ADDED: %u\n:SOURCE_URL: %c\n:END:\n\n%i\n%?\n")
+         :empty-lines 1
+         :immediate-finish t)
+        ;; ...other capture templates...
+    ))
 </pre>
 
 
@@ -1097,14 +1151,12 @@ captured facts.
 Using these templates and <code>org-protocol</code>, you can set up buttons in your web
 browser to:
 </p><ul>
-<li>
-Create a task telling you to read the URL of the currently viewed webpage
+<li>Create a task telling you to read the URL of the currently viewed webpage
 </li>
-<li>
-Turn a region of selected text on a webpage, into a new fact which is saved
-to whichever file and heading you nominate in the template. The fact will
-contain a timestamp, and a hyperlink back to the webpage where you created
-it.
+<li>Turn a region of selected text on a webpage, into a new fact which is saved
+  to whichever file and heading you nominate in the template. The fact will
+  contain a timestamp, and a hyperlink back to the webpage where you created
+  it.
 </li>
 </ul>
 
@@ -1166,10 +1218,10 @@ something like:
 
 
 
-<pre class="src src-org"><span style="color: #4876ff; background-color: #000080; font-weight: bold;">** Fact: 'Tuberculosis - Wikipedia, the Free Encyclopedia'        </span><span style="color: #66cdaa; background-color: #000080; font-weight: bold;">:drill:</span><span style="color: #4876ff; background-color: #000080; font-weight: bold;">
-</span>
+<pre class="example">** Fact: 'Tuberculosis - Wikipedia, the Free Encyclopedia'        :drill:
+
 Prevention relies on screening programs and vaccination, usually with Bacillus
-Calmette-Gu&#233;rin vaccine.
+Calmette-Guérin vaccine.
 </pre>
 
 
@@ -1196,10 +1248,10 @@ or give it different tags or properties, for example.
 </div>
 </div>
 <div id="postamble">
-<p class="author"> Author: Paul Sexton
-</p>
-<p class="date"> Date: 2011-04-08 16:00:36 </p>
-<p class="creator">HTML generated by org-mode 7.4 in emacs 23</p>
+<p class="date">Date: 2011-04-13 11:23:22 </p>
+<p class="author">Author: Paul Sexton</p>
+<p class="creator">Org version 7.5 with Emacs version 23</p>
+<a href="http://validator.w3.org/check?uri=referer">Validate XHTML 1.0</a>
 </div>
 </div>
 </body>
