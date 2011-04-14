@@ -29,6 +29,12 @@ that use it, see:
 - [[http://ichi2.net/anki/][Anki]]
 - [[http://mnemosyne-proj.org/index.php][Mnemosyne]]
 
+Org-Drill comes bundled with Org mode, in the "contrib" directory. Org-Drill
+also has its own repository, which is updated more regularly than the bundled
+version. The repository is at:
+
+http://bitbucket.org/eeeickythump/org-drill
+
 
 * Installation
 
