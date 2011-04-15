@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.1
+;;; Version: 2.1.1
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -394,6 +394,12 @@ for review unless they were already reviewed in the recent past?")
                                 (subseq ,place (1+ ,idx)))))))))
 
 
+(defmacro push-end (val place)
+  "Add VAL to the end of the sequence stored in PLACE. Return the new
+value."
+  `(setq ,place (append ,place (list ,val))))
+
+
 (defun shuffle-list (list)
   "Randomly permute the elements of LIST (all permutations equally likely)."
   ;; Adapted from 'shuffle-vector' in cookie1.el
@@ -415,7 +421,6 @@ for review unless they were already reviewed in the recent past?")
 Example: (round-float 3.56755765 3) -> 3.568"
   (let ((n (expt 10 fix)))
     (/ (float (round (* floatnum n))) n)))
-
 
 (defun time-to-inactive-org-timestamp (time)
   (format-time-string
@@ -645,7 +650,7 @@ from the entry at point."
                        (t -1))))
       (/ (+ 100 (* (* (/ -1 b) (log (- 1 (* (/ b a ) (abs p)))))
                    (sign p)))
-         100))))
+         100.0))))
 
 
 (defun org-drill-early-interval-factor (optimal-factor
@@ -1510,7 +1515,7 @@ maximum number of items."
           ;; After all the above are done, last priority is items
           ;; that were failed earlier THIS SESSION.
           (*org-drill-again-entries*
-           (pop-random *org-drill-again-entries*))
+           (pop *org-drill-again-entries*))
           (t                            ; nothing left -- return nil
            (return-from org-drill-pop-next-pending-entry nil)))))
       m)))
@@ -1550,7 +1555,10 @@ RESUMING-P is true if we are resuming a suspended drill session."
            (t
             (cond
              ((<= result org-drill-failure-quality)
-              (push m *org-drill-again-entries*))
+              (if *org-drill-again-entries*
+                  (setq *org-drill-again-entries*
+                        (shuffle-list *org-drill-again-entries*)))
+              (push-end m *org-drill-again-entries*))
              (t
               (push m *org-drill-done-entries*))))))))))
 
