@@ -82,7 +82,7 @@ where you have more control over what information is hidden from the user for
 recall purposes. For this reason, some other card types are defined, including:
 - [[Two-sided cards]]
 - [[Multi-sided cards]]
-- [[Multicloze cards]]
+- [[Multi-cloze cards]]
 - [[User-defined card types]]
 
 *A note about comments:* In org mode, comment lines start with '#'. The rest of
@@ -286,14 +286,21 @@ The capital city of New Zealand is Wellington, which is located in
 the [North|North/South] Island.
 #+END_EXAMPLE
 
-However, this is really cumbersome. The 'multicloze' card type exists for this
+However, this is really cumbersome. Multicloze card types exist for this
 situation. Multicloze cards behave like 'simple' cards, except that when there
-is more than one area marked as cloze text, only one of the marked areas will
-be hidden during review -- the others all remain visible. The hidden text area
-is chosen randomly at each review.
+is more than one area marked as cloze text, some but not all of the areas
+are hidden. There are two types of multicloze card:
+
+1. =hide1cloze= -- one of the marked areas is hidden during review; the others
+   all remain visible. The hidden text area is chosen randomly at each review.
+   (Note: this type used to be called 'multicloze', and that card type is
+   retained as a synonym for 'hide1cloze'.)
+2. =show1cloze= -- only one of the marked areas is visible during review; all
+   the others are hidden. The hidden text area is chosen randomly at each
+   review.
 
 So, for the above example, we can actually use the original 'bad' simple card,
-but change its card type to 'multicloze'. Each time the card is presented for
+but change its card type to 'hide1cloze'. Each time the card is presented for
 review, one of 'New Zealand', 'Wellington', 'the South Island' or '400,000'
 will be hidden.
 

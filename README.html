@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Org-Drill</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2011-04-15 08:42:23 "/>
+<meta name="generated" content="2011-04-22 15:27:38 "/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -249,7 +249,7 @@ recall purposes. For this reason, some other card types are defined, including:
 </li>
 <li><a href="#sec-4_4">Multi-sided cards</a>
 </li>
-<li><a href="#Multicloze-cards">Multicloze cards</a>
+<li><a href="#sec-4_5">Multi-cloze cards</a>
 </li>
 <li><a href="#sec-4_6">User-defined card types</a>
 </li>
@@ -545,15 +545,27 @@ the [North|North/South] Island.
 
 
 <p>
-However, this is really cumbersome. The 'multicloze' card type exists for this
+However, this is really cumbersome. Multicloze card types exist for this
 situation. Multicloze cards behave like 'simple' cards, except that when there
-is more than one area marked as cloze text, only one of the marked areas will
-be hidden during review &ndash; the others all remain visible. The hidden text area
-is chosen randomly at each review.
+is more than one area marked as cloze text, some but not all of the areas
+are hidden. There are two types of multicloze card:
 </p>
+<ol>
+<li><code>hide1cloze</code> &ndash; one of the marked areas is hidden during review; the others
+   all remain visible. The hidden text area is chosen randomly at each review.
+   (Note: this type used to be called 'multicloze', and that card type is
+   retained as a synonym for 'hide1cloze'.)
+</li>
+<li><code>show1cloze</code> &ndash; only one of the marked areas is visible during review; all
+   the others are hidden. The hidden text area is chosen randomly at each
+   review.
+</li>
+</ol>
+
+
 <p>
 So, for the above example, we can actually use the original 'bad' simple card,
-but change its card type to 'multicloze'. Each time the card is presented for
+but change its card type to 'hide1cloze'. Each time the card is presented for
 review, one of 'New Zealand', 'Wellington', 'the South Island' or '400,000'
 will be hidden.
 </p>
@@ -1258,7 +1270,7 @@ or give it different tags or properties, for example.
 </div>
 </div>
 <div id="postamble">
-<p class="date">Date: 2011-04-15 08:42:23 </p>
+<p class="date">Date: 2011-04-22 15:27:38 </p>
 <p class="author">Author: Paul Sexton</p>
 <p class="creator">Org version 7.5 with Emacs version 23</p>
 <a href="http://validator.w3.org/check?uri=referer">Validate XHTML 1.0</a>

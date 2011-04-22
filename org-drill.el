@@ -201,7 +201,9 @@ during a drill session."
     ("simple" . org-drill-present-simple-card)
     ("twosided" . org-drill-present-two-sided-card)
     ("multisided" . org-drill-present-multi-sided-card)
-    ("multicloze" . org-drill-present-multicloze)
+    ("hide1cloze" . org-drill-present-multicloze-hide1)
+    ("show1cloze" . org-drill-present-multicloze-show1)
+    ("multicloze" . org-drill-present-multicloze-hide1)
     ("spanish_verb" . org-drill-present-spanish-verb))
   "Alist associating card types with presentation functions. Each entry in the
 alist takes the form (CARDTYPE . FUNCTION), where CARDTYPE is a string
@@ -1117,25 +1119,55 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
       nil))))
 
 
-(defun org-drill-hide-all-subheadings-except (heading-list)
-  "Returns a list containing the position of each immediate subheading of
+;; (defun org-drill-hide-all-subheadings-except (heading-list)
+;;   "Returns a list containing the position of each immediate subheading of
+;; the current topic."
+;;   (let ((drill-entry-level (org-current-level))
+;;         (drill-sections nil)
+;;         (drill-heading nil))
+;;     (org-show-subtree)
+;;     (save-excursion
+;;       (org-map-entries
+;;        (lambda ()
+;;          (when (and (not (outline-invisible-p))
+;;                     (> (org-current-level) drill-entry-level))
+;;            (setq drill-heading (org-get-heading t))
+;;            (unless (and (= (org-current-level) (1+ drill-entry-level))
+;;                         (member drill-heading heading-list))
+;;              (hide-subtree))
+;;            (push (point) drill-sections)))
+;;        "" 'tree))
+;;     (reverse drill-sections)))
+
+
+
+(defun org-drill-hide-subheadings-if (test)
+  "TEST is a function taking no arguments. TEST will be called for each
+of the immediate subheadings of the current drill item, with the point
+on the relevant subheading. TEST should return nil if the subheading is
+to be revealed, non-nil if it is to be hidden.
+Returns a list containing the position of each immediate subheading of
 the current topic."
   (let ((drill-entry-level (org-current-level))
-        (drill-sections nil)
-        (drill-heading nil))
+        (drill-sections nil))
     (org-show-subtree)
     (save-excursion
       (org-map-entries
        (lambda ()
          (when (and (not (outline-invisible-p))
                     (> (org-current-level) drill-entry-level))
-           (setq drill-heading (org-get-heading t))
-           (unless (and (= (org-current-level) (1+ drill-entry-level))
-                        (member drill-heading heading-list))
+           (when (or (/= (org-current-level) (1+ drill-entry-level))
+                        (funcall test))
              (hide-subtree))
            (push (point) drill-sections)))
        "" 'tree))
     (reverse drill-sections)))
+
+
+(defun org-drill-hide-all-subheadings-except (heading-list)
+  (org-drill-hide-subheadings-if
+   (lambda () (let ((drill-heading (org-get-heading t)))
+           (not (member drill-heading heading-list))))))
 
 
 (defun org-drill-presentation-prompt (&rest fmt-and-args)
@@ -1289,7 +1321,7 @@ visual overlay."
     (org-display-inline-images t)
     (org-cycle-hide-drawers 'all)
     (prog1 (org-drill-presentation-prompt)
-      (org-show-subtree)))))
+      (org-drill-hide-subheadings-if 'org-drill-entry-p)))))
 
 
 (defun org-drill-present-two-sided-card ()
@@ -1305,7 +1337,7 @@ visual overlay."
       (org-cycle-hide-drawers 'all)
       (prog1
           (org-drill-presentation-prompt)
-        (org-show-subtree))))))
+        (org-drill-hide-subheadings-if 'org-drill-entry-p))))))
 
 
 
@@ -1321,10 +1353,12 @@ visual overlay."
       (org-cycle-hide-drawers 'all)
       (prog1
           (org-drill-presentation-prompt)
-        (org-show-subtree))))))
+        (org-drill-hide-subheadings-if 'org-drill-entry-p))))))
 
 
-(defun org-drill-present-multicloze ()
+(defun org-drill-present-multicloze-hide1 ()
+  "Hides one of the pieces of text that are marked for cloze deletion,
+chosen at random."
   (with-hidden-comments
    (let ((item-end nil)
          (match-count 0)
@@ -1347,7 +1381,40 @@ visual overlay."
      (org-display-inline-images t)
      (org-cycle-hide-drawers 'all)
      (prog1 (org-drill-presentation-prompt)
-       (org-show-subtree)
+       (org-drill-hide-subheadings-if 'org-drill-entry-p)
+       (org-drill-unhide-clozed-text)))))
+
+
+(defun org-drill-present-multicloze-show1 ()
+  "Similar to `org-drill-present-multicloze-hide1', but hides all
+the pieces of text that are marked for cloze deletion, except for one
+piece which is chosen at random."
+  (with-hidden-comments
+   (let ((item-end nil)
+         (match-count 0)
+         (body-start (or (cdr (org-get-property-block))
+                         (point))))
+     (org-drill-hide-all-subheadings-except nil)
+     (save-excursion
+       (outline-next-heading)
+       (setq item-end (point)))
+     (save-excursion
+       (goto-char body-start)
+       (while (re-search-forward org-drill-cloze-regexp item-end t)
+         (incf match-count)))
+     (when (plusp match-count)
+       (let ((match-to-hide (random match-count)))
+         (save-excursion
+           (goto-char body-start)
+           (dotimes (n match-count)
+             (re-search-forward org-drill-cloze-regexp
+                                item-end t)
+             (unless (= n match-to-hide)
+               (org-drill-hide-matched-cloze-text))))))
+     (org-display-inline-images t)
+     (org-cycle-hide-drawers 'all)
+     (prog1 (org-drill-presentation-prompt)
+       (org-drill-hide-subheadings-if 'org-drill-entry-p)
        (org-drill-unhide-clozed-text)))))
 
 
@@ -1394,6 +1461,22 @@ visual overlay."
         (org-drill-hide-all-subheadings-except reveal-headings))))))
 
 
+;;; The following macro is necessary because `org-save-outline-visibility'
+;;; currently discards the value returned by its body and returns a garbage
+;;; value instead. (as at org mode v 7.5)
+
+(defmacro org-drill-save-visibility (&rest body)
+  "Store the current visibility state of the org buffer, and restore it
+after executing BODY. Return the value of the last expression
+in BODY."
+  (let ((retval (gensym)))
+    `(let ((,retval nil))
+       (org-save-outline-visibility t
+         (setq ,retval
+               (progn
+                 ,@body)))
+       ,retval)))
+
 
 (defun org-drill-entry ()
   "Present the current topic for interactive review, as in `org-drill'.
@@ -1414,29 +1497,30 @@ See `org-drill' for more details."
   ;;  (org-back-to-heading))
   (let ((card-type (org-entry-get (point) "DRILL_CARD_TYPE"))
         (cont nil))
-    (save-restriction
-      (org-narrow-to-subtree)
-      (org-show-subtree)
-      (org-cycle-hide-drawers 'all)
+    (org-drill-save-visibility
+     (save-restriction
+       (org-narrow-to-subtree)
+       (org-show-subtree)
+       (org-cycle-hide-drawers 'all)
 
-      (let ((presentation-fn (cdr (assoc card-type org-drill-card-type-alist))))
-        (cond
-         (presentation-fn
-          (setq cont (funcall presentation-fn)))
-         (t
-          (error "Unknown card type: '%s'" card-type))))
+       (let ((presentation-fn (cdr (assoc card-type org-drill-card-type-alist))))
+         (cond
+          (presentation-fn
+           (setq cont (funcall presentation-fn)))
+          (t
+           (error "Unknown card type: '%s'" card-type))))
 
-      (cond
-       ((not cont)
-        (message "Quit")
-        nil)
-       ((eql cont 'edit)
-        'edit)
-       ((eql cont 'skip)
-        'skip)
-       (t
-        (save-excursion
-          (org-drill-reschedule)))))))
+       (cond
+        ((not cont)
+         (message "Quit")
+         nil)
+        ((eql cont 'edit)
+         'edit)
+        ((eql cont 'skip)
+         'skip)
+        (t
+         (save-excursion
+           (org-drill-reschedule))))))))
 
 
 (defun org-drill-entries-pending-p ()
@@ -1730,30 +1814,30 @@ than starting a new one."
                               (make-string (ceiling cnt 50) ?.)))
                    (let ((due (org-drill-entry-days-overdue))
                          (last-int (org-drill-entry-last-interval 1)))
-                   (cond
-                    ((not (org-drill-entry-p))
-                     nil)               ; skip
-                    ((or (null due)     ; unscheduled - usually a skipped leech
-                         (minusp due))  ; scheduled in the future
-                     (incf *org-drill-dormant-entry-count*)
-                     (if (eq -1 due)
-                         (incf *org-drill-due-tomorrow-count*)))
-                    ((org-drill-entry-new-p)
-                     (push (point-marker) *org-drill-new-entries*))
-                    ((<= (org-drill-entry-last-quality 9999)
-                         org-drill-failure-quality)
-                     ;; Mature entries that were failed last time are FAILED,
-                     ;; regardless of how young, old or overdue they are.
-                     (push (point-marker) *org-drill-failed-entries*))
-                    ((org-drill-entry-overdue-p due last-int)
-                     ;; Overdue status overrides young versus old distinction.
-                     (push (point-marker) *org-drill-overdue-entries*))
-                    ((<= (org-drill-entry-last-interval 9999)
-                         org-drill-days-before-old)
-                     ;; Item is 'young'.
-                     (push (point-marker) *org-drill-young-mature-entries*))
-                    (t
-                     (push (point-marker) *org-drill-old-mature-entries*)))))
+                     (cond
+                      ((not (org-drill-entry-p))
+                       nil)             ; skip
+                      ((or (null due)   ; unscheduled - usually a skipped leech
+                           (minusp due)) ; scheduled in the future
+                       (incf *org-drill-dormant-entry-count*)
+                       (if (eq -1 due)
+                           (incf *org-drill-due-tomorrow-count*)))
+                      ((org-drill-entry-new-p)
+                       (push (point-marker) *org-drill-new-entries*))
+                      ((<= (org-drill-entry-last-quality 9999)
+                           org-drill-failure-quality)
+                       ;; Mature entries that were failed last time are FAILED,
+                       ;; regardless of how young, old or overdue they are.
+                       (push (point-marker) *org-drill-failed-entries*))
+                      ((org-drill-entry-overdue-p due last-int)
+                       ;; Overdue status overrides young versus old distinction.
+                       (push (point-marker) *org-drill-overdue-entries*))
+                      ((<= (org-drill-entry-last-interval 9999)
+                           org-drill-days-before-old)
+                       ;; Item is 'young'.
+                       (push (point-marker) *org-drill-young-mature-entries*))
+                      (t
+                       (push (point-marker) *org-drill-old-mature-entries*)))))
                  (concat "+" org-drill-question-tag) scope)))
             (setq *org-drill-due-entry-count* (org-drill-pending-entry-count))
             (setq *org-drill-overdue-entry-count*
@@ -1820,7 +1904,7 @@ exiting them with the `edit' option."
                 (font-lock-add-keywords
                  'org-mode
                  org-drill-cloze-keywords
-                 t))))
+                 nil))))
 
 
 
