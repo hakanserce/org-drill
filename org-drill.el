@@ -1,7 +1,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.1.1
+;;; Version: 2.2
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -180,6 +180,11 @@ during a drill session."
 (setplist 'org-drill-hidden-text-overlay
           '(invisible t))
 
+(setplist 'org-drill-replaced-text-overlay
+          '(display "Replaced text"
+                    face default
+                    window t))
+
 
 (defvar org-drill-cloze-regexp
   ;; ver 1   "[^][]\\(\\[[^][][^]]*\\]\\)"
@@ -204,11 +209,23 @@ during a drill session."
     ("hide1cloze" . org-drill-present-multicloze-hide1)
     ("show1cloze" . org-drill-present-multicloze-show1)
     ("multicloze" . org-drill-present-multicloze-hide1)
-    ("spanish_verb" . org-drill-present-spanish-verb))
+    ("conjugate" org-drill-present-verb-conjugation
+     org-drill-show-answer-verb-conjugation)
+    ("spanish_verb" . org-drill-present-spanish-verb)
+    ("translate_number" org-drill-present-translate-number
+     org-drill-show-answer-translate-number))
   "Alist associating card types with presentation functions. Each entry in the
-alist takes the form (CARDTYPE . FUNCTION), where CARDTYPE is a string
-or nil, and FUNCTION is a function which takes no arguments and returns a
-boolean value."
+alist takes one of two forms:
+1. (CARDTYPE . QUESTION-FN), where CARDTYPE is a string or nil (for default),
+   and QUESTION-FN is a function which takes no arguments and returns a boolean
+   value.
+2. (CARDTYPE QUESTION-FN ANSWER-FN), where ANSWER-FN is a function that takes
+   one argument -- the argument is a function that itself takes no arguments.
+   ANSWER-FN is called with the point on the active item's
+   heading, just prior to displaying the item's 'answer'. It can therefore be
+   used to modify the appearance of the answer. ANSWER-FN must call its argument
+   before returning. (Its argument is a function that prompts the user and
+   performs rescheduling)."
   :group 'org-drill
   :type '(alist :key-type (choice string (const nil)) :value-type function))
 
@@ -914,37 +931,35 @@ See the documentation for `org-drill-get-item-data' for a description of these."
                     (/ (+ quality (* meanq totaln 1.0)) (1+ totaln))
                   quality))
     (cond
+     ((<= quality org-drill-failure-quality)
+      (incf failures)
+      (setf repeats 0
+            next-interval -1))
      ((or (zerop repeats)
           (zerop last-interval))
       (setf next-interval (org-drill-simple8-first-interval failures))
       (incf repeats)
       (incf totaln))
      (t
-      (cond
-       ((<= quality org-drill-failure-quality)
-        (incf failures)
-        (setf repeats 0
-              next-interval -1))
-       (t
-        (let* ((use-n
-                (if (and
-                     org-drill-adjust-intervals-for-early-and-late-repetitions-p
-                     (numberp delta-days) (plusp delta-days)
-                     (plusp last-interval))
-                    (+ repeats (min 1 (/ delta-days last-interval 1.0)))
-                  repeats))
-               (factor (org-drill-simple8-interval-factor
-                        (org-drill-simple8-quality->ease meanq) use-n))
-               (next-int (* last-interval factor)))
-          (when (and org-drill-adjust-intervals-for-early-and-late-repetitions-p
-                     (numberp delta-days) (minusp delta-days))
-            ;; The item was reviewed earlier than scheduled.
-            (setf factor (org-drill-early-interval-factor
-                          factor next-int (abs delta-days))
-                  next-int (* last-interval factor)))
-          (setf next-interval next-int)
-          (incf repeats)
-          (incf totaln))))))
+      (let* ((use-n
+              (if (and
+                   org-drill-adjust-intervals-for-early-and-late-repetitions-p
+                   (numberp delta-days) (plusp delta-days)
+                   (plusp last-interval))
+                  (+ repeats (min 1 (/ delta-days last-interval 1.0)))
+                repeats))
+             (factor (org-drill-simple8-interval-factor
+                      (org-drill-simple8-quality->ease meanq) use-n))
+             (next-int (* last-interval factor)))
+        (when (and org-drill-adjust-intervals-for-early-and-late-repetitions-p
+                   (numberp delta-days) (minusp delta-days))
+          ;; The item was reviewed earlier than scheduled.
+          (setf factor (org-drill-early-interval-factor
+                        factor next-int (abs delta-days))
+                next-int (* last-interval factor)))
+        (setf next-interval next-int)
+        (incf repeats)
+        (incf totaln))))
     (list
      (if (and org-drill-add-random-noise-to-intervals-p
               (plusp next-interval))
@@ -962,14 +977,21 @@ See the documentation for `org-drill-get-item-data' for a description of these."
 
 
 ;;; Essentially copied from `org-learn.el', but modified to
-;;; optionally call the SM2 function above.
+;;; optionally call the SM2 or simple8 functions.
 (defun org-drill-smart-reschedule (quality &optional days-ahead)
   "If DAYS-AHEAD is supplied it must be a positive integer. The
 item will be scheduled exactly this many days into the future."
   (let ((delta-days (- (time-to-days (current-time))
                    (time-to-days (or (org-get-scheduled-time (point))
                                      (current-time)))))
-        (ofmatrix org-drill-optimal-factor-matrix))
+        (ofmatrix org-drill-optimal-factor-matrix)
+        ;; Entries can have weights, 1 by default. Intervals are divided by the
+        ;; item's weight, so an item with a weight of 2 will have all intervals
+        ;; halved, meaning you will end up reviewing it twice as often.
+        ;; Useful for entries which randomly present any of several facts.
+        (weight (org-entry-get (point) "DRILL_CARD_WEIGHT")))
+    (if (stringp weight)
+        (setq weight (read weight)))
     (destructuring-bind (last-interval repetitions failures
                                        total-repeats meanq ease)
         (org-drill-get-item-data)
@@ -987,10 +1009,16 @@ item will be scheduled exactly this many days into the future."
                                                       quality failures meanq
                                                       total-repeats
                                                       delta-days)))
-        (if (integerp days-ahead)
-            (setf next-interval days-ahead))
+        (if (numberp days-ahead)
+            (setq next-interval days-ahead))
+
         (org-drill-store-item-data next-interval repetitions failures
                                    total-repeats meanq ease)
+        (if (and (null days-ahead)
+                 (numberp weight) (plusp weight)
+                 (not (minusp next-interval)))
+            (setq next-interval (max 1.0 (/ next-interval weight))))
+
         (if (eql 'sm5 org-drill-spaced-repetition-algorithm)
             (setq org-drill-optimal-factor-matrix new-ofmatrix))
 
@@ -1005,34 +1033,37 @@ item will be scheduled exactly this many days into the future."
                                        (round next-interval))))))))))
 
 
-
 (defun org-drill-hypothetical-next-review-date (quality)
   "Returns an integer representing the number of days into the future
 that the current item would be scheduled, based on a recall quality
 of QUALITY."
-  (destructuring-bind (last-interval repetitions failures
-                                     total-repeats meanq ease)
-      (org-drill-get-item-data)
-    (destructuring-bind (next-interval repetitions ease
-                                       failures meanq total-repeats
-                                       &optional ofmatrix)
-        (case org-drill-spaced-repetition-algorithm
-          (sm5 (determine-next-interval-sm5 last-interval repetitions
-                                            ease quality failures
-                                            meanq total-repeats
-                                            org-drill-optimal-factor-matrix))
-          (sm2 (determine-next-interval-sm2 last-interval repetitions
-                                            ease quality failures
-                                            meanq total-repeats))
-          (simple8 (determine-next-interval-simple8 last-interval repetitions
-                                                    quality failures meanq
-                                                    total-repeats)))
-      (cond
-       ((not (plusp next-interval))
-        0)
-       (t
-        next-interval)))))
-
+  (let ((weight (org-entry-get (point) "DRILL_CARD_WEIGHT")))
+    (destructuring-bind (last-interval repetitions failures
+                                       total-repeats meanq ease)
+        (org-drill-get-item-data)
+      (if (stringp weight)
+          (setq weight (read weight)))
+      (destructuring-bind (next-interval repetitions ease
+                                         failures meanq total-repeats
+                                         &optional ofmatrix)
+          (case org-drill-spaced-repetition-algorithm
+            (sm5 (determine-next-interval-sm5 last-interval repetitions
+                                              ease quality failures
+                                              meanq total-repeats
+                                              org-drill-optimal-factor-matrix))
+            (sm2 (determine-next-interval-sm2 last-interval repetitions
+                                              ease quality failures
+                                              meanq total-repeats))
+            (simple8 (determine-next-interval-simple8 last-interval repetitions
+                                                      quality failures meanq
+                                                      total-repeats)))
+        (cond
+         ((not (plusp next-interval))
+          0)
+         ((and (numberp weight) (plusp weight))
+          (max 1.0 (/ next-interval weight)))
+         (t
+          next-interval))))))
 
 
 (defun org-drill-hypothetical-next-review-dates ()
@@ -1241,21 +1272,25 @@ Consider reformulating the item to make it easier to remember.\n"
     (org-in-regexp regexp nlines)))
 
 
-(defun org-drill-hide-region (beg end)
+(defun org-drill-hide-region (beg end &optional text)
   "Hide the buffer region between BEG and END with an 'invisible text'
-visual overlay."
+visual overlay, or with the string TEXT if it is supplied."
   (let ((ovl (make-overlay beg end)))
     (overlay-put ovl 'category
-                 'org-drill-hidden-text-overlay)))
+                 'org-drill-hidden-text-overlay)
+    (when (stringp text)
+      (overlay-put ovl 'invisible nil)
+      (overlay-put ovl 'face 'default)
+      (overlay-put ovl 'display text))))
 
 
-(defun org-drill-hide-heading-at-point ()
+(defun org-drill-hide-heading-at-point (&optional text)
   (unless (org-at-heading-p)
     (error "Point is not on a heading."))
   (save-excursion
     (let ((beg (point)))
       (end-of-line)
-      (org-drill-hide-region beg (point)))))
+      (org-drill-hide-region beg (point) text))))
 
 
 (defun org-drill-hide-comments ()
@@ -1297,11 +1332,68 @@ visual overlay."
                             (1- (length (match-string 0)))))))))
 
 
+(defmacro with-replaced-entry-text (text &rest body)
+  "During the execution of BODY, the entire text of the current entry is
+concealed by an overlay that displays the string TEXT."
+  `(progn
+     (org-drill-replace-entry-text ,text)
+     (unwind-protect
+         (progn
+           ,@body)
+       (org-drill-unreplace-entry-text))))
+
+
+(defun org-drill-replace-entry-text (text)
+  "Make an overlay that conceals the entire text of the item, not
+including properties or the contents of subheadings. The overlay shows
+the string TEXT.
+Note: does not actually alter the item."
+  (let ((ovl (make-overlay (point-min)
+                           (save-excursion
+                             (outline-next-heading)
+                             (point)))))
+    (overlay-put ovl 'category
+                 'org-drill-replaced-text-overlay)
+    (overlay-put ovl 'display text)))
+
+
+(defun org-drill-unreplace-entry-text ()
+  (save-excursion
+    (dolist (ovl (overlays-in (point-min) (point-max)))
+      (when (eql 'org-drill-replaced-text-overlay (overlay-get ovl 'category))
+        (delete-overlay ovl)))))
+
+
+(defmacro with-replaced-entry-heading (heading &rest body)
+  `(progn
+     (org-drill-replace-entry-heading ,heading)
+     (unwind-protect
+         (progn
+           ,@body)
+       (org-drill-unhide-comments))))
+
+
+(defun org-drill-replace-entry-heading (heading)
+  "Make an overlay that conceals the heading of the item. The overlay shows
+the string TEXT.
+Note: does not actually alter the item."
+  (org-drill-hide-heading-at-point heading))
+
+
 (defun org-drill-unhide-clozed-text ()
   (save-excursion
     (dolist (ovl (overlays-in (point-min) (point-max)))
       (when (eql 'org-drill-cloze-overlay-defaults (overlay-get ovl 'category))
         (delete-overlay ovl)))))
+
+
+(defun org-drill-get-entry-text ()
+  (substring-no-properties
+   (org-agenda-get-some-entry-text (point-marker) 100)))
+
+
+(defun org-drill-entry-empty-p ()
+  (zerop (length (org-drill-get-entry-text))))
 
 
 
@@ -1418,47 +1510,15 @@ piece which is chosen at random."
        (org-drill-unhide-clozed-text)))))
 
 
-(defun org-drill-present-spanish-verb ()
-  (let ((prompt nil)
-        (reveal-headings nil))
-    (with-hidden-comments
-     (with-hidden-cloze-text
-      (case (random 6)
-        (0
-         (org-drill-hide-all-subheadings-except '("Infinitive"))
-         (setq prompt
-               (concat "Translate this Spanish verb, and conjugate it "
-                       "for the *present* tense.")
-               reveal-headings '("English" "Present Tense" "Notes")))
-        (1
-         (org-drill-hide-all-subheadings-except '("English"))
-         (setq prompt (concat "For the *present* tense, conjugate the "
-                              "Spanish translation of this English verb.")
-               reveal-headings '("Infinitive" "Present Tense" "Notes")))
-        (2
-         (org-drill-hide-all-subheadings-except '("Infinitive"))
-         (setq prompt (concat "Translate this Spanish verb, and "
-                              "conjugate it for the *past* tense.")
-               reveal-headings '("English" "Past Tense" "Notes")))
-        (3
-         (org-drill-hide-all-subheadings-except '("English"))
-         (setq prompt (concat "For the *past* tense, conjugate the "
-                              "Spanish translation of this English verb.")
-               reveal-headings '("Infinitive" "Past Tense" "Notes")))
-        (4
-         (org-drill-hide-all-subheadings-except '("Infinitive"))
-         (setq prompt (concat "Translate this Spanish verb, and "
-                              "conjugate it for the *future perfect* tense.")
-               reveal-headings '("English" "Future Perfect Tense" "Notes")))
-        (5
-         (org-drill-hide-all-subheadings-except '("English"))
-         (setq prompt (concat "For the *future perfect* tense, conjugate the "
-                              "Spanish translation of this English verb.")
-               reveal-headings '("Infinitive" "Future Perfect Tense" "Notes"))))
-      (org-cycle-hide-drawers 'all)
-      (prog1
-          (org-drill-presentation-prompt prompt)
-        (org-drill-hide-all-subheadings-except reveal-headings))))))
+(defun org-drill-present-card-using-text (question &optional answer)
+  "Present the string QUESTION as the only visible content of the card."
+  (with-hidden-comments
+   (with-replaced-entry-text
+    question
+    (org-drill-hide-all-subheadings-except nil)
+    (org-cycle-hide-drawers 'all)
+    (prog1 (org-drill-presentation-prompt)
+      (org-drill-hide-subheadings-if 'org-drill-entry-p)))))
 
 
 ;;; The following macro is necessary because `org-save-outline-visibility'
@@ -1496,7 +1556,8 @@ See `org-drill' for more details."
   ;;(unless (org-at-heading-p)
   ;;  (org-back-to-heading))
   (let ((card-type (org-entry-get (point) "DRILL_CARD_TYPE"))
-        (cont nil))
+        (cont nil)
+        (answer-fn nil))
     (org-drill-save-visibility
      (save-restriction
        (org-narrow-to-subtree)
@@ -1504,6 +1565,9 @@ See `org-drill' for more details."
        (org-cycle-hide-drawers 'all)
 
        (let ((presentation-fn (cdr (assoc card-type org-drill-card-type-alist))))
+         (if (listp presentation-fn)
+             (psetq answer-fn (second presentation-fn)
+                    presentation-fn (first presentation-fn)))
          (cond
           (presentation-fn
            (setq cont (funcall presentation-fn)))
@@ -1520,7 +1584,11 @@ See `org-drill' for more details."
          'skip)
         (t
          (save-excursion
-           (org-drill-reschedule))))))))
+           (cond
+            (answer-fn
+             (funcall answer-fn (lambda () (org-drill-reschedule))))
+            (t
+             (org-drill-reschedule))))))))))
 
 
 (defun org-drill-entries-pending-p ()
@@ -1737,6 +1805,19 @@ order to make items appear more frequently over time."
          ))))
 
 
+
+(defun org-drill-free-all-markers ()
+  (dolist (m (append  *org-drill-done-entries*
+                      *org-drill-new-entries*
+                      *org-drill-failed-entries*
+                      *org-drill-again-entries*
+                      *org-drill-overdue-entries*
+                      *org-drill-young-mature-entries*
+                      *org-drill-old-mature-entries*))
+    (free-marker m)))
+
+
+
 (defun org-drill (&optional scope resume-p)
   "Begin an interactive 'drill session'. The user is asked to
 review a series of topics (headers). Each topic is initially
@@ -1784,6 +1865,7 @@ than starting a new one."
         (cnt 0))
     (block org-drill
       (unless resume-p
+        (org-drill-free-all-markers)
         (setq *org-drill-current-item* nil
               *org-drill-done-entries* nil
               *org-drill-dormant-entry-count* 0
@@ -1817,6 +1899,8 @@ than starting a new one."
                      (cond
                       ((not (org-drill-entry-p))
                        nil)             ; skip
+                      ((org-drill-entry-empty-p)
+                       nil)             ; skip -- item body is empty
                       ((or (null due)   ; unscheduled - usually a skipped leech
                            (minusp due)) ; scheduled in the future
                        (incf *org-drill-dormant-entry-count*)
@@ -1854,14 +1938,7 @@ than starting a new one."
               (message "Drill session finished!"))))
         (progn
           (unless end-pos
-            (dolist (m (append  *org-drill-done-entries*
-                                *org-drill-new-entries*
-                                *org-drill-failed-entries*
-                                *org-drill-again-entries*
-                                *org-drill-overdue-entries*
-                                *org-drill-young-mature-entries*
-                                *org-drill-old-mature-entries*))
-              (free-marker m))))))
+            (org-drill-free-all-markers)))))
     (cond
      (end-pos
       (when (markerp end-pos)
@@ -1873,6 +1950,7 @@ than starting a new one."
       (if (eql 'sm5 org-drill-spaced-repetition-algorithm)
           (org-drill-save-optimal-factor-matrix))
       ))))
+
 
 
 (defun org-drill-save-optimal-factor-matrix ()
@@ -1891,11 +1969,42 @@ hours."
     (org-drill scope)))
 
 
+(defun org-drill-tree ()
+  "Run an interactive drill session using drill items within the
+subtree at point."
+  (interactive)
+  (org-drill 'tree))
+
+
 (defun org-drill-resume ()
   "Resume a suspended drill session. Sessions are suspended by
 exiting them with the `edit' option."
   (interactive)
   (org-drill nil t))
+
+
+(defun org-drill-strip-data (&optional scope)
+  "Delete scheduling data from every drill entry in scope. This
+function may be useful if you want to give your collection of
+entries to someone else.  Scope defaults to the current buffer,
+and is specified by the argument SCOPE, which accepts the same
+values as `org-drill'."
+  (interactive)
+  (when (yes-or-no-p
+         "Delete scheduling data from ALL items in scope: are you sure?")
+    (org-map-entries (lambda ()
+                       (org-delete-property "DRILL_LAST_INTERVAL")
+                       (org-delete-property "DRILL_REPEATS_SINCE_FAIL")
+                       (org-delete-property "DRILL_TOTAL_REPEATS")
+                       (org-delete-property "DRILL_FAILURE_COUNT")
+                       (org-delete-property "DRILL_AVERAGE_QUALITY")
+                       (org-delete-property "DRILL_EASE")
+                       (org-delete-property "DRILL_LAST_QUALITY")
+                       (org-delete-property "DRILL_LAST_REVIEWED")
+                       (org-schedule t))
+                     "" scope)
+    (message "Done.")))
+
 
 
 (add-hook 'org-mode-hook
@@ -1907,5 +2016,197 @@ exiting them with the `edit' option."
                  nil))))
 
 
-
 (provide 'org-drill)
+
+;;; Card types for learning languages =========================================
+
+;;; Get spell-number.el from:
+;;; http://www.emacswiki.org/emacs/spell-number.el
+(autoload 'spelln-integer-in-words "spell-number")
+
+
+;;; `conjugate' card type =====================================================
+;;; See spanish.org for usage
+
+(defvar org-drill-verb-tense-alist
+  '(("present" "tomato")
+    ("simple present" "tomato")
+    ("present indicative" "tomato")
+    ;; past tenses
+    ("past" "purple")
+    ("simple past" "purple")
+    ("preterite" "purple")
+    ("imperfect" "darkturquoise")
+    ("present perfect" "royalblue")
+    ;; future tenses
+    ("future" "green"))
+  "Alist where each entry has the form (TENSE COLOUR), where
+TENSE is a string naming a tense in which verbs can be
+conjugated, and COLOUR is a string specifying a foreground colour
+which will be used by `org-drill-present-verb-conjugation' and
+`org-drill-show-answer-verb-conjugation' to fontify the verb and
+the name of the tense.")
+
+
+(defun org-drill-get-verb-conjugation-info ()
+  "Auxiliary function used by `org-drill-present-verb-conjugation' and
+`org-drill-show-answer-verb-conjugation'."
+  (let ((infinitive (org-entry-get (point) "VERB_INFINITIVE" t))
+        (translation (org-entry-get (point) "VERB_TRANSLATION" t))
+        (tense (org-entry-get (point) "VERB_TENSE" nil))
+        (highlight-face nil))
+    (unless (and infinitive translation tense)
+      (error "Missing information for verb conjugation card (%s, %s, %s) at %s"
+             infinitive translation tense (point)))
+    (setq tense (downcase (car (read-from-string tense)))
+          infinitive (car (read-from-string infinitive))
+          translation (car (read-from-string translation)))
+    (setq highlight-face
+          (list :foreground
+                (or (second (assoc-string tense org-drill-verb-tense-alist t))
+                    "red")))
+    (setq infinitive (propertize infinitive 'face highlight-face))
+    (setq translation (propertize translation 'face highlight-face))
+    (setq tense (propertize tense 'face highlight-face))
+    (list infinitive translation tense)))
+
+
+(defun org-drill-present-verb-conjugation ()
+  "Present a drill entry whose card type is 'conjugate'."
+  (destructuring-bind (infinitive translation tense)
+      (org-drill-get-verb-conjugation-info)
+    (org-drill-present-card-using-text
+     (cond
+      ((zerop (random 2))
+       (format "\nTranslate the verb\n\n%s\n\nand conjugate for the %s tense.\n\n"
+               infinitive tense))
+      (t
+       (format "\nGive the verb that means\n\n%s\n\nand conjugate for the %s tense.\n\n"
+               translation tense))))))
+
+
+(defun org-drill-show-answer-verb-conjugation (reschedule-fn)
+  "Show the answer for a drill item whose card type is 'conjugate'.
+RESCHEDULE-FN must be a function that calls `org-drill-reschedule' and
+returns its return value."
+  (destructuring-bind (infinitive translation tense)
+      (org-drill-get-verb-conjugation-info)
+    (with-replaced-entry-heading
+     (format "%s tense of %s ==> %s\n\n"
+             (capitalize tense)
+             infinitive translation)
+     (funcall reschedule-fn))))
+
+
+;;; `translate_number' card type ==============================================
+;;; See spanish.org for usage
+
+(defvar *drilled-number* 0)
+(defvar *drilled-number-direction* 'to-english)
+
+(defun org-drill-present-translate-number ()
+  (let ((num-min (read (org-entry-get (point) "DRILL_NUMBER_MIN")))
+        (num-max (read (org-entry-get (point) "DRILL_NUMBER_MAX")))
+        (language (read (org-entry-get (point) "DRILL_LANGUAGE" t)))
+        (highlight-face 'font-lock-warning-face))
+    (cond
+     ((not (fboundp 'spelln-integer-in-words))
+      (message "`spell-number.el' not loaded, skipping 'translate_number' card...")
+      (sit-for 0.5)
+      'skip)
+     ((not (and (numberp num-min) (numberp num-max) language))
+      (error "Missing language or minimum or maximum numbers for number card"))
+     (t
+      (if (> num-min num-max)
+          (psetf num-min num-max
+                 num-max num-min))
+      (setq *drilled-number*
+            (+ num-min (random (abs (1+ (- num-max num-min))))))
+      (setq *drilled-number-direction*
+            (if (zerop (random 2)) 'from-english 'to-english))
+      (org-drill-present-card-using-text
+       (if (eql 'to-english *drilled-number-direction*)
+           (format "\nTranslate into English:\n\n%s\n"
+                   (let ((spelln-language language))
+                     (propertize
+                      (spelln-integer-in-words *drilled-number*)
+                      'face highlight-face)))
+         (format "\nTranslate into %s:\n\n%s\n"
+                 (capitalize (format "%s" language))
+                 (let ((spelln-language 'english-gb))
+                   (propertize
+                    (spelln-integer-in-words *drilled-number*)
+                    'face highlight-face)))))))))
+
+
+(defun org-drill-show-answer-translate-number (reschedule-fn)
+  (let* ((language (read (org-entry-get (point) "DRILL_LANGUAGE" t)))
+         (highlight-face 'font-lock-warning-face)
+         (non-english
+          (let ((spelln-language language))
+            (propertize (spelln-integer-in-words *drilled-number*)
+                        'face highlight-face)))
+         (english
+          (let ((spelln-language 'english-gb))
+            (propertize (spelln-integer-in-words *drilled-number*)
+                        'face 'highlight-face))))
+    (with-replaced-entry-text
+     (cond
+      ((eql 'to-english *drilled-number-direction*)
+       (format "\nThe English translation of %s is:\n\n%s\n"
+               non-english english))
+      (t
+       (format "\nThe %s translation of %s is:\n\n%s\n"
+               (capitalize (format "%s" language))
+               english non-english)))
+     (funcall reschedule-fn))))
+
+
+;;; `spanish_verb' card type ==================================================
+;;; Not very interesting, but included to demonstrate how a presentation
+;;; function can manipulate which subheading are hidden versus shown.
+
+
+(defun org-drill-present-spanish-verb ()
+  (let ((prompt nil)
+        (reveal-headings nil))
+    (with-hidden-comments
+     (with-hidden-cloze-text
+      (case (random 6)
+        (0
+         (org-drill-hide-all-subheadings-except '("Infinitive"))
+         (setq prompt
+               (concat "Translate this Spanish verb, and conjugate it "
+                       "for the *present* tense.")
+               reveal-headings '("English" "Present Tense" "Notes")))
+        (1
+         (org-drill-hide-all-subheadings-except '("English"))
+         (setq prompt (concat "For the *present* tense, conjugate the "
+                              "Spanish translation of this English verb.")
+               reveal-headings '("Infinitive" "Present Tense" "Notes")))
+        (2
+         (org-drill-hide-all-subheadings-except '("Infinitive"))
+         (setq prompt (concat "Translate this Spanish verb, and "
+                              "conjugate it for the *past* tense.")
+               reveal-headings '("English" "Past Tense" "Notes")))
+        (3
+         (org-drill-hide-all-subheadings-except '("English"))
+         (setq prompt (concat "For the *past* tense, conjugate the "
+                              "Spanish translation of this English verb.")
+               reveal-headings '("Infinitive" "Past Tense" "Notes")))
+        (4
+         (org-drill-hide-all-subheadings-except '("Infinitive"))
+         (setq prompt (concat "Translate this Spanish verb, and "
+                              "conjugate it for the *future perfect* tense.")
+               reveal-headings '("English" "Future Perfect Tense" "Notes")))
+        (5
+         (org-drill-hide-all-subheadings-except '("English"))
+         (setq prompt (concat "For the *future perfect* tense, conjugate the "
+                              "Spanish translation of this English verb.")
+               reveal-headings '("Infinitive" "Future Perfect Tense" "Notes"))))
+      (org-cycle-hide-drawers 'all)
+      (prog1
+          (org-drill-presentation-prompt prompt)
+        (org-drill-hide-all-subheadings-except reveal-headings))))))
+
+

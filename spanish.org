@@ -49,7 +49,7 @@ llamar = to be named
 # that character is considered to be a `hint', and will remain visible when the
 # rest of the clozed text is hidden.
 
-# Set the variable `org-drill-use-visible-cloze-face-p' to `t' if you want 
+# Set the variable `org-drill-use-visible-cloze-face-p' to `t' if you want
 # cloze-deleted text to be shown in a special face when you are editing org
 # mode buffers.
 
@@ -59,27 +59,27 @@ To form the plural of a noun ending in a consonant, add [-es] to the end.
 
 *** Grammar Rule                                     :drill:
 
-To make the plural of an adjective ending in [a stressed vowel or a consonant 
+To make the plural of an adjective ending in [a stressed vowel or a consonant
 other than -z], add /-es/.
 
 ** Grammar rules 2
 
-# An example of a 'multicloze' card. One of the areas marked with square
+# An example of a 'hide1cloze' card. One of the areas marked with square
 # brackets will be hidden (chosen at random), the others will remain visible.
 
 *** Grammar Rule                                     :drill:
     :PROPERTIES:
-    :DRILL_CARD_TYPE: multicloze
+    :DRILL_CARD_TYPE: hide1cloze
     :END:
 
-To form [an adverb] from an adjective, add [-mente] to the [feminine|gender] 
+To form [an adverb] from an adjective, add [-mente] to the [feminine|gender]
 form of the adjective.
 
 ** Vocabulary
 
 # Examples of 'twosided' cards. These are 'flip cards' where one of the
 # first 2 'sides' (subheadings) is presented at random, while all others stay
-# hidden. 
+# hidden.
 
 # There is another builtin card type called 'multisided'. These are like
 # 'twosided' cards, but can have any number of sides. So we could extend the
@@ -110,22 +110,15 @@ the cat
 
 *** Noun                                             :drill:
     :PROPERTIES:
-    :DRILL_CARD_TYPE: twosided
+    :DRILL_CARD_TYPE: hide1cloze
     :END:
 
-Translate this word.
-
-**** Spanish
-
-el perro
-
-**** English
-
-the dog
+Sp: [el perro]
+En: [the dog]
 
 **** Example sentence
 
-Cuidado con *el perro*. 
+Cuidado con *el perro*.
 Beware of *the dog*.
 
 
@@ -160,7 +153,7 @@ Translate this word.
 
 caliente
 
-**** English 
+**** English
 
 hot
 
@@ -172,11 +165,90 @@ The water is very hot.
 
 ** Verbs
 
-# An example of a special card type. The information in "spanish_verb" topics
-# can be presented in any of several different ways -- see the function
-# `org-drill-present-spanish-verb'.
+[[Regular Verb: bailar][Below]] is an example of a complex drill item. The main item is itself a drill
+item which tests your ability to translate 'bailar' to and from English (which
+direction is chosen at random).
 
-*** Verb                                             :drill:
+The item has several child items, some of which contain notes about the verb,
+others of which are separate drill items relating to the verb. In this example,
+all the child drill items test verb conjugation, and have the 'conjugate' card
+type. Which tense to test is specified by the =VERB_TENSE= property in each item,
+and the information about the verb is retrieved from the parent's
+=VERB_INFINITIVE= and =VERB_TRANSLATION= properties.
+
+Some of the conjugation items are empty -- this allows the user to past in
+conjugations as they are learned.
+
+Following this item is an [[Old Style Verb][example]] of the "spanish_verb" card type. This is not
+as sophisticated or useful as the above example, but is intended to demonstrate
+how a function can control which subheadings are visible when an item is
+tested.
+
+
+*** Regular Verb: bailar                                            :verb:drill:
+  :PROPERTIES:
+  :VERB_INFINITIVE: "bailar"
+  :VERB_TRANSLATION: "to dance"
+  :DRILL_CARD_TYPE: hide1cloze
+  :DATE_ADDED: [2011-04-30 Sat]
+  :END:
+
+Sp:  [bailar]
+En:  [to dance] (verb)
+
+**** Notes
+
+This is a regular verb.
+
+**** Examples
+
+Bailé con mi novia.
+I danced with my girlfriend.
+
+**** Present Indicative tense                                       :verb:drill:
+     :PROPERTIES:
+     :VERB_TENSE: "present indicative"
+     :DRILL_CARD_TYPE: conjugate
+     :END:
+
+| yo            | bailo    |
+| tú            | bailas   |
+| él/usted      | baila    |
+| nosotros      | bailamos |
+| vosotros      | bailáis  |
+| ellos/ustedes | bailan   |
+
+**** Participles                                                    :verb:drill:
+Present participle of bailar:  [bailando]
+Past participle of bailar:     [bailado]
+
+**** Preterite tense                                                :verb:drill:
+     :PROPERTIES:
+     :VERB_TENSE: "preterite"
+     :DRILL_CARD_TYPE: conjugate
+     :END:
+
+| yo            | bailé      |
+| tú            | bailaste   |
+| él/usted      | bailó      |
+| nosotros      | bailamos   |
+| vosotros      | bailasteis |
+| ellos/ustedes | bailaron   |
+
+**** Imperfect tense                                                :verb:drill:
+     :PROPERTIES:
+     :VERB_TENSE: "imperfect"
+     :DRILL_CARD_TYPE: conjugate
+     :END:
+
+**** Future tense                                                   :verb:drill:
+    :PROPERTIES:
+    :VERB_TENSE: "future"
+    :DRILL_CARD_TYPE: conjugate
+    :END:
+
+
+*** Old Style Verb                                                       :drill:
     :PROPERTIES:
     :DRILL_CARD_TYPE: spanish_verb
     :END:
@@ -211,4 +283,31 @@ to sing
 **** Notes
 
 Regular verb.
+
+
+** Random Numbers
+
+Below is an example of a card that tests the user's ability to translate random
+whole numbers to and from a non-English language. For it to work correctly, you
+must have the third party library [[http://www.emacswiki.org/emacs/spell-number.el][spell-number.el]] installed and loaded.
+
+The meaning of the item's properties is as follows:
+- =DRILL_LANGUAGE=: any language recognised by spell-number.el. At the time of
+  writing these include: catalan, danish, dutch, english-eur, english-gb,
+  english-us, esperanto, finnish, french-fr, french-ch, german, italian,
+  japanese, norwegian, portuguese-br, portuguese-pt, spanish and swedish.
+- =DRILL_NUMBER_MIN= and =DRILL_NUMBER_MAX=: the range between which the random
+  number will fall.
+
+
+*** Random Number 20-99                                                  :drill:
+  :PROPERTIES:
+  :DRILL_NUMBER_MIN: 20
+  :DRILL_NUMBER_MAX: 99
+  :DRILL_LANGUAGE: spanish
+  :DRILL_CARD_TYPE: translate_number
+  :END:
+
+# This comment is included so that the item body is non-empty. Items with
+# empty bodies are skipped during drill sessions.
 

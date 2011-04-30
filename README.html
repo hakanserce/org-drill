@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Org-Drill</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2011-04-22 15:27:38 "/>
+<meta name="generated" content="2011-04-30 16:14:35 "/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -98,6 +98,7 @@ lang="en" xml:lang="en">
 <li><a href="#sec-4_4">Multi-sided cards </a></li>
 <li><a href="#sec-4_5">Multi-cloze cards </a></li>
 <li><a href="#sec-4_6">User-defined card types </a></li>
+<li><a href="#sec-4_7">Empty cards </a></li>
 </ul>
 </li>
 <li><a href="#sec-5">Running the drill session </a></li>
@@ -228,14 +229,16 @@ the topic must have a tag that matches the value of
 will be ignored.
 </p>
 <p>
-You don't need to schedule the topics initially.  However <code>org-drill</code> <b>will</b>
-recognise items that have been scheduled previously with
-<code>org-learn</code>. Unscheduled items are considered to be 'new' and ready for
-memorisation.
+Drill items can have other drill items as children. When a drill item is being
+tested, the contents of any child drill items will be hidden.
+</p>
+<p>
+You don't need to schedule the topics initially.  Unscheduled items are
+considered to be 'new' and ready for memorisation.
 </p>
 <p>
 How should 'drill topics' be structured? Any org topic is a legal drill topic
-&ndash; it will simply be shown with all subheadings collapsed, so thta only the
+&ndash; it will simply be shown with all subheadings collapsed, so that only the
 material beneath the main item heading is visible. After pressing a key, any
 hidden subheadings will be revealed, and you will be asked to rate your
 "recall" of the item.
@@ -598,14 +601,56 @@ the [North|North/South] Island and has a population of about [400,000].
 Finally, you can write your own emacs lisp functions to define new kinds of
 topics. Any new topic type will need to be added to
 <code>org-drill-card-type-alist</code>, and cards using that topic type will need to have
-it as the value of their <code>DRILL_CARD_TYPE</code> property. For an example, see the
-function <code>org-drill-present-spanish-verb</code>, which defines the new topic type
-<code>spanish_verb</code>, used in 'spanish.org'.
-</p>
+it as the value of their <code>DRILL_CARD_TYPE</code> property. For examples, see the
+functions at the end of org-drill.el &ndash; these include:
+</p><ul>
+<li><code>org-drill-present-verb-conjugation</code>, which implements the 'conjugate'
+  card type. This asks the user to conjugate a verb in a particular tense. It
+  demonstrates how the appearance of an entry can be completely altered during
+  a drill session, both during testing and during the display fo the answer.
+</li>
+<li><code>org-drill-present-translate-number</code>, which uses a third-party emacs lisp
+  library (<a href="http://www.emacswiki.org/emacs/spell-number.el">spell-number.el</a>) to prompt the user to translate random numbers
+  to and from any language recognised by that library.
+</li>
+<li><code>org-drill-present-spanish-verb</code>, which defines the new topic type
+  <code>spanish_verb</code>. This illustrates how a function can control which of an
+  item's subheadings are visible during the drill session.
+</li>
+</ul>
+
+
 <p>
-See the file <a href="spanish.html">spanish.org</a> for a full set of example material.
+See the file <a href="spanish.html">spanish.org</a> for a full set of example material, including examples
+of all the card types discussed above.
 </p>
 
+</div>
+
+</div>
+
+<div id="outline-container-4_7" class="outline-3">
+<h3 id="sec-4_7">Empty cards </h3>
+<div class="outline-text-3" id="text-4_7">
+
+
+
+<p>
+If the body of a drill item is completely empty (ignoring properties and child
+items), then the item will be skipped during drill sessions. The purpose of
+this behaviour is to allow you to paste in 'skeletons' of complex items, then
+fill in missing information later. For example, you may wish to include an
+empty drill item for each tense of a newly learned verb, then paste in the
+actual conjugation later as you learn each tense.
+</p>
+<p>
+Note that if an item is empty, any child drill items will <b>not</b> be ignored,
+unless they are empty as well.
+</p>
+<p>
+If you have an item with an empty body, but still want it to be included in a
+drill session, put a brief comment ('# &hellip;')  in the item body.
+</p>
 
 </div>
 </div>
@@ -625,7 +670,10 @@ argument, SCOPE, which allows it to take drill items from other
 sources. Possible values for SCOPE are:
 </p>
 <dl>
-<dt>tree</dt><dd>The subtree starting with the entry at the cursor.
+<dt>tree</dt><dd>The subtree starting with the entry at the cursor. (Alternatively you
+          can use <code>M-x org=drill-tree</code> to run the drill session &ndash; this will
+          behave the same as <code>org-drill</code> if 'tree' was used as the value of
+          SCOPE.)
 </dd>
 <dt>file</dt><dd>The current buffer, including both hidden and non-hidden items.
 </dd>
@@ -1270,7 +1318,7 @@ or give it different tags or properties, for example.
 </div>
 </div>
 <div id="postamble">
-<p class="date">Date: 2011-04-22 15:27:38 </p>
+<p class="date">Date: 2011-04-30 16:14:35 </p>
 <p class="author">Author: Paul Sexton</p>
 <p class="creator">Org version 7.5 with Emacs version 23</p>
 <a href="http://validator.w3.org/check?uri=referer">Validate XHTML 1.0</a>

@@ -1,8 +1,6 @@
 # -*- mode: org; coding: utf-8 -*-
 #+STARTUP: showall
 #+OPTIONS: num:nil
-# Make absolutely sure the emacs lisp examples below don't get spuriously evaluated
-#+BABEL: :exports code
 #+TITLE: Org-Drill
 #+AUTHOR: Paul Sexton
 
@@ -66,13 +64,14 @@ the topic must have a tag that matches the value of
 =org-drill-question-tag=. This is =:drill:= by default. Any other org topics
 will be ignored.
 
-You don't need to schedule the topics initially.  However =org-drill= *will*
-recognise items that have been scheduled previously with
-=org-learn=. Unscheduled items are considered to be 'new' and ready for
-memorisation.
+Drill items can have other drill items as children. When a drill item is being
+tested, the contents of any child drill items will be hidden.
+
+You don't need to schedule the topics initially.  Unscheduled items are
+considered to be 'new' and ready for memorisation.
 
 How should 'drill topics' be structured? Any org topic is a legal drill topic
--- it will simply be shown with all subheadings collapsed, so thta only the
+-- it will simply be shown with all subheadings collapsed, so that only the
 material beneath the main item heading is visible. After pressing a key, any
 hidden subheadings will be revealed, and you will be asked to rate your
 "recall" of the item.
@@ -322,12 +321,38 @@ the [North|North/South] Island and has a population of about [400,000].
 Finally, you can write your own emacs lisp functions to define new kinds of
 topics. Any new topic type will need to be added to
 =org-drill-card-type-alist=, and cards using that topic type will need to have
-it as the value of their =DRILL_CARD_TYPE= property. For an example, see the
-function =org-drill-present-spanish-verb=, which defines the new topic type
-=spanish_verb=, used in 'spanish.org'.
+it as the value of their =DRILL_CARD_TYPE= property. For examples, see the
+functions at the end of org-drill.el -- these include:
+- =org-drill-present-verb-conjugation=, which implements the 'conjugate'
+  card type. This asks the user to conjugate a verb in a particular tense. It
+  demonstrates how the appearance of an entry can be completely altered during
+  a drill session, both during testing and during the display fo the answer.
+- =org-drill-present-translate-number=, which uses a third-party emacs lisp
+  library ([[http://www.emacswiki.org/emacs/spell-number.el][spell-number.el]]) to prompt the user to translate random numbers
+  to and from any language recognised by that library.
+- =org-drill-present-spanish-verb=, which defines the new topic type
+  =spanish_verb=. This illustrates how a function can control which of an
+  item's subheadings are visible during the drill session.
 
-See the file [[file:spanish.org][spanish.org]] for a full set of example material.
+See the file [[file:spanish.org][spanish.org]] for a full set of example material, including examples
+of all the card types discussed above.
 
+
+** Empty cards
+
+
+If the body of a drill item is completely empty (ignoring properties and child
+items), then the item will be skipped during drill sessions. The purpose of
+this behaviour is to allow you to paste in 'skeletons' of complex items, then
+fill in missing information later. For example, you may wish to include an
+empty drill item for each tense of a newly learned verb, then paste in the
+actual conjugation later as you learn each tense.
+
+Note that if an item is empty, any child drill items will *not* be ignored,
+unless they are empty as well.
+
+If you have an item with an empty body, but still want it to be included in a
+drill session, put a brief comment ('# ...')  in the item body.
 
 
 * Running the drill session
@@ -338,7 +363,10 @@ non-hidden topics in the current buffer. =org-drill= takes an optional
 argument, SCOPE, which allows it to take drill items from other
 sources. Possible values for SCOPE are:
 
-- tree :: The subtree starting with the entry at the cursor.
+- tree :: The subtree starting with the entry at the cursor. (Alternatively you
+          can use =M-x org=drill-tree= to run the drill session -- this will
+          behave the same as =org-drill= if 'tree' was used as the value of
+          SCOPE.)
 - file :: The current buffer, including both hidden and non-hidden items.
 - file-with-archives :: The current buffer, and any archives associated with it.
 - agenda :: All agenda files.
