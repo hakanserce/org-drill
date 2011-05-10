@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Org-Drill</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2011-04-30 16:14:35 "/>
+<meta name="generated" content="2011-05-10 16:51:44 "/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -94,11 +94,12 @@ lang="en" xml:lang="en">
 <ul>
 <li><a href="#sec-4_1">Simple topics </a></li>
 <li><a href="#sec-4_2">Cloze deletion </a></li>
-<li><a href="#sec-4_3">Two-sided cards </a></li>
-<li><a href="#sec-4_4">Multi-sided cards </a></li>
-<li><a href="#sec-4_5">Multi-cloze cards </a></li>
-<li><a href="#sec-4_6">User-defined card types </a></li>
-<li><a href="#sec-4_7">Empty cards </a></li>
+<li><a href="#sec-4_3">Clozed text hints </a></li>
+<li><a href="#sec-4_4">Two-sided cards </a></li>
+<li><a href="#sec-4_5">Multi-sided cards </a></li>
+<li><a href="#sec-4_6">Multi-cloze cards </a></li>
+<li><a href="#sec-4_7">User-defined card types </a></li>
+<li><a href="#sec-4_8">Empty cards </a></li>
 </ul>
 </li>
 <li><a href="#sec-5">Running the drill session </a></li>
@@ -120,7 +121,8 @@ lang="en" xml:lang="en">
 <li><a href="#sec-8_5">Per-file customisation settings </a></li>
 </ul>
 </li>
-<li><a href="#sec-9">Incremental reading </a></li>
+<li><a href="#sec-9">Sharing, merging and synchronising item collections </a></li>
+<li><a href="#sec-10">Incremental reading </a></li>
 </ul>
 </div>
 </div>
@@ -248,13 +250,13 @@ This will be adequate for some items, but usually you will want to write items
 where you have more control over what information is hidden from the user for
 recall purposes. For this reason, some other card types are defined, including:
 </p><ul>
-<li><a href="#sec-4_3">Two-sided cards</a>
+<li><a href="#sec-4_4">Two-sided cards</a>
 </li>
-<li><a href="#sec-4_4">Multi-sided cards</a>
+<li><a href="#sec-4_5">Multi-sided cards</a>
 </li>
-<li><a href="#sec-4_5">Multi-cloze cards</a>
+<li><a href="#sec-4_6">Multi-cloze cards</a>
 </li>
-<li><a href="#sec-4_6">User-defined card types</a>
+<li><a href="#sec-4_7">User-defined card types</a>
 </li>
 </ul>
 
@@ -342,11 +344,23 @@ During review, the user will see:
 <p>
 When the user presses a key, the text "Tallinn" will become visible.
 </p>
+
+</div>
+
+</div>
+
+<div id="outline-container-4_3" class="outline-3">
+<h3 id="sec-4_3">Clozed text hints </h3>
+<div class="outline-text-3" id="text-4_3">
+
+
+
 <p>
-Clozed text can also contain a "hint" about the answer. If the text
-surrounded by single square brackets contains a `|' character (vertical bar),
-all text after that character is treated as a hint, and will be visible when
-the rest of the text is hidden.
+Clozed text can contain a "hint" about the answer. If the text surrounded
+by single square brackets contains a `|' character (vertical bar), all text
+after that character is treated as a hint. During testing, the hint text will
+be visible when the rest of the text is hidden, and invisible when the rest of
+the text is visible.
 </p>
 <p>
 Example:
@@ -364,9 +378,9 @@ and [mast cells|cell type].
 
 <p>Type 1 hypersensitivity reactions are mediated by
 <font style="background-color: blue;" color="cyan">
-<tt>[&hellip;molecule]</tt></font>
+<tt>[molecule&hellip;]</tt></font>
 and <font style="background-color: blue;" color="cyan">
-<tt>[&hellip;cell type]</tt></font>.
+<tt>[cell type&hellip;]</tt></font>.
 </p>
 </blockquote>
 
@@ -376,9 +390,9 @@ and <font style="background-color: blue;" color="cyan">
 
 </div>
 
-<div id="outline-container-4_3" class="outline-3">
-<h3 id="sec-4_3"><a name="Two-sided-cards" id="Two-sided-cards"></a>Two-sided cards </h3>
-<div class="outline-text-3" id="text-4_3">
+<div id="outline-container-4_4" class="outline-3">
+<h3 id="sec-4_4"><a name="Two-sided-cards" id="Two-sided-cards"></a>Two-sided cards </h3>
+<div class="outline-text-3" id="text-4_4">
 
 
 <p>
@@ -433,9 +447,9 @@ not one of the first two 'sides' of the topic.
 
 </div>
 
-<div id="outline-container-4_4" class="outline-3">
-<h3 id="sec-4_4"><a name="Multi-sided-cards" id="Multi-sided-cards"></a>Multi-sided cards </h3>
-<div class="outline-text-3" id="text-4_4">
+<div id="outline-container-4_5" class="outline-3">
+<h3 id="sec-4_5"><a name="Multi-sided-cards" id="Multi-sided-cards"></a>Multi-sided cards </h3>
+<div class="outline-text-3" id="text-4_5">
 
 
 
@@ -475,9 +489,9 @@ The user will be shown the main text and either 'la mujer', <i>or</i> 'the woman
 
 </div>
 
-<div id="outline-container-4_5" class="outline-3">
-<h3 id="sec-4_5"><a name="Multi-cloze-cards" id="Multi-cloze-cards"></a>Multi-cloze cards </h3>
-<div class="outline-text-3" id="text-4_5">
+<div id="outline-container-4_6" class="outline-3">
+<h3 id="sec-4_6"><a name="Multi-cloze-cards" id="Multi-cloze-cards"></a>Multi-cloze cards </h3>
+<div class="outline-text-3" id="text-4_6">
 
 
 
@@ -489,7 +503,7 @@ facts, such as the following:
 
 
 <pre class="example">The capital city of New Zealand is Wellington, which is located in the
-South Island and has a population of about 400,000.
+North Island and has a population of about 400,000.
 </pre>
 
 
@@ -577,7 +591,7 @@ will be hidden.
 
 <pre class="example">* Fact
   :PROPERTIES:
-  :DRILL_CARD_TYPE: multicloze
+  :DRILL_CARD_TYPE: hide1cloze
   :END:
 
 The capital city of [New Zealand] is [Wellington], which is located in
@@ -591,9 +605,9 @@ the [North|North/South] Island and has a population of about [400,000].
 
 </div>
 
-<div id="outline-container-4_6" class="outline-3">
-<h3 id="sec-4_6"><a name="User-defined-card-types" id="User-defined-card-types"></a>User-defined card types </h3>
-<div class="outline-text-3" id="text-4_6">
+<div id="outline-container-4_7" class="outline-3">
+<h3 id="sec-4_7"><a name="User-defined-card-types" id="User-defined-card-types"></a>User-defined card types </h3>
+<div class="outline-text-3" id="text-4_7">
 
 
 
@@ -629,9 +643,9 @@ of all the card types discussed above.
 
 </div>
 
-<div id="outline-container-4_7" class="outline-3">
-<h3 id="sec-4_7">Empty cards </h3>
-<div class="outline-text-3" id="text-4_7">
+<div id="outline-container-4_8" class="outline-3">
+<h3 id="sec-4_8">Empty cards </h3>
+<div class="outline-text-3" id="text-4_8">
 
 
 
@@ -1159,8 +1173,72 @@ special settings when running a Drill session using that file:
 </div>
 
 <div id="outline-container-9" class="outline-2">
-<h2 id="sec-9">Incremental reading </h2>
+<h2 id="sec-9">Sharing, merging and synchronising item collections </h2>
 <div class="outline-text-2" id="text-9">
+
+
+
+<p>
+Every drill item is automatically given a persistent unique "ID" the first time
+it is seen by Org-Drill. This means that if two different people subsequently
+edit or reschedule that item, Org-Drill can still tell that it is the same
+item. This in turn means that collections of items can be shared and edited in
+a collaborative manner.
+</p>
+<p>
+There are two commands that are useful in this regard:
+</p><ol>
+<li><code>org-drill-strip-all-data</code> - this command deletes all user-specific
+   scheduling data from every item in the current collection. (It takes the
+   same optional 'scope' argument as <code>org-drill</code> to define which items will
+   be processed by the command). User-specific data includes scheduling dates,
+   ease factors, number of failures and repetitions, and so on. All items are
+   reset to 'new' status. This command is useful if you want to share your
+   item collection with someone else.
+</li>
+<li><code>org-drill-merge-buffers</code> - When called from buffer A, it prompts you for
+   another buffer (B), which must also be loaded into Emacs. This command
+   imports all the user-specific scheduling data from buffer B into buffer A,
+   and deletes any such information in A. Matching items are identified by
+   their ID. Any items in B that do not exist in A are copied to A, in
+   the same hierarchical location if all the parent headings exist, otherwise
+   at the end of the buffer.
+</li>
+</ol>
+
+
+<p>
+An example scenario:
+</p>
+<p>
+Tim decides to learn Swedish using an item collection (<code>.org</code> file) made
+publically available by Jane.  (Before publishing it Jane used
+'org-drill-strip-all-data' to remove her personal scheduling data from the
+collection.)  A few weeks later, Jane updates her collection, adding new items
+and revising some old ones. Tim downloads the new collection and imports his
+progress from his copy of the old collection, using 'org-drill-merge-buffers',
+using the new collection as buffer A and the old one as buffer B. He can then
+discard the old copy. Any items HE added to HIS copy of the old collection
+(buffer B) will not be lost &ndash; they will be appended to his copy of the new
+collection.
+</p>
+<p>
+Of course the sharing does not need to be 'public'. You and a friend might be
+learning a language or some other topic together. You each maintain a card
+collection. Periodically your friend sends you a copy of their collection --
+you run <code>org-drill-merge-buffers</code> on it, always using your own collection as
+buffer B so that your own scheduling progress is carried over. Other times you
+send your friend a copy of your collection, and he or she follows the same
+procedure.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-10" class="outline-2">
+<h2 id="sec-10">Incremental reading </h2>
+<div class="outline-text-2" id="text-10">
 
 
 
@@ -1318,7 +1396,7 @@ or give it different tags or properties, for example.
 </div>
 </div>
 <div id="postamble">
-<p class="date">Date: 2011-04-30 16:14:35 </p>
+<p class="date">Date: 2011-05-10 16:51:44 </p>
 <p class="author">Author: Paul Sexton</p>
 <p class="creator">Org version 7.5 with Emacs version 23</p>
 <a href="http://validator.w3.org/check?uri=referer">Validate XHTML 1.0</a>

@@ -1,4 +1,4 @@
-# -*- mode: org; coding: utf-8 -*-
+# -*- mode: org; coding: utf-8-unix -*-
 #+STARTUP: showall
 #+OPTIONS: num:nil
 #+TITLE: Org-Drill
@@ -137,10 +137,15 @@ The capital city of Estonia is @<font style="background-color: blue;" color="cya
 
 When the user presses a key, the text "Tallinn" will become visible.
 
-Clozed text can also contain a "hint" about the answer. If the text
-surrounded by single square brackets contains a `|' character (vertical bar),
-all text after that character is treated as a hint, and will be visible when
-the rest of the text is hidden.
+
+** Clozed text hints
+
+
+Clozed text can contain a "hint" about the answer. If the text surrounded
+by single square brackets contains a `|' character (vertical bar), all text
+after that character is treated as a hint. During testing, the hint text will
+be visible when the rest of the text is hidden, and invisible when the rest of
+the text is visible.
 
 Example:
 
@@ -152,9 +157,9 @@ and [mast cells|cell type].
 #+BEGIN_QUOTE
 Type 1 hypersensitivity reactions are mediated by
 @<font style="background-color: blue;" color="cyan">
-@<tt>[...molecule]@</tt>@</font>
+@<tt>[molecule...]@</tt>@</font>
 and @<font style="background-color: blue;" color="cyan">
-@<tt>[...cell type]@</tt>@</font>.
+@<tt>[cell type...]@</tt>@</font>.
 #+END_QUOTE
 
 
@@ -240,7 +245,7 @@ facts, such as the following:
 
 #+BEGIN_EXAMPLE
 The capital city of New Zealand is Wellington, which is located in the
-South Island and has a population of about 400,000.
+North Island and has a population of about 400,000.
 #+END_EXAMPLE
 
 There is more than one fact in this statement -- you could create a single
@@ -306,7 +311,7 @@ will be hidden.
 #+BEGIN_EXAMPLE
 * Fact
   :PROPERTIES:
-  :DRILL_CARD_TYPE: multicloze
+  :DRILL_CARD_TYPE: hide1cloze
   :END:
 
 The capital city of [New Zealand] is [Wellington], which is located in
@@ -652,6 +657,53 @@ special settings when running a Drill session using that file:
 #+END_EXAMPLE
 
 
+* Sharing, merging and synchronising item collections
+
+
+Every drill item is automatically given a persistent unique "ID" the first time
+it is seen by Org-Drill. This means that if two different people subsequently
+edit or reschedule that item, Org-Drill can still tell that it is the same
+item. This in turn means that collections of items can be shared and edited in
+a collaborative manner.
+
+There are two commands that are useful in this regard:
+1. =org-drill-strip-all-data= - this command deletes all user-specific
+   scheduling data from every item in the current collection. (It takes the
+   same optional 'scope' argument as =org-drill= to define which items will
+   be processed by the command). User-specific data includes scheduling dates,
+   ease factors, number of failures and repetitions, and so on. All items are
+   reset to 'new' status. This command is useful if you want to share your
+   item collection with someone else.
+2. =org-drill-merge-buffers= - When called from buffer A, it prompts you for
+   another buffer (B), which must also be loaded into Emacs. This command
+   imports all the user-specific scheduling data from buffer B into buffer A,
+   and deletes any such information in A. Matching items are identified by
+   their ID. Any items in B that do not exist in A are copied to A, in
+   the same hierarchical location if all the parent headings exist, otherwise
+   at the end of the buffer.
+
+An example scenario:
+
+Tim decides to learn Swedish using an item collection (=.org= file) made
+publically available by Jane.  (Before publishing it Jane used
+'org-drill-strip-all-data' to remove her personal scheduling data from the
+collection.)  A few weeks later, Jane updates her collection, adding new items
+and revising some old ones. Tim downloads the new collection and imports his
+progress from his copy of the old collection, using 'org-drill-merge-buffers',
+using the new collection as buffer A and the old one as buffer B. He can then
+discard the old copy. Any items HE added to HIS copy of the old collection
+(buffer B) will not be lost -- they will be appended to his copy of the new
+collection.
+
+Of course the sharing does not need to be 'public'. You and a friend might be
+learning a language or some other topic together. You each maintain a card
+collection. Periodically your friend sends you a copy of their collection --
+you run =org-drill-merge-buffers= on it, always using your own collection as
+buffer B so that your own scheduling progress is carried over. Other times you
+send your friend a copy of your collection, and he or she follows the same
+procedure.
+
+
 * Incremental reading
 
 
@@ -771,10 +823,3 @@ templates, each of which might send its fact to a different file or subheading,
 or give it different tags or properties, for example.
 
 
-* Still to do                                                         :noexport:
-
-
-- =org-drill-question-tag= should use a tag match string, rather than a
-  single tag? Can use =org-make-tag-matcher=.
-- perhaps take account of item priorities, showing high priority items first
-- get tooltips to work for old/new/etc counts during review?

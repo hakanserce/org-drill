@@ -67,6 +67,10 @@ other than -z], add /-es/.
 # An example of a 'hide1cloze' card. One of the areas marked with square
 # brackets will be hidden (chosen at random), the others will remain visible.
 
+# This card also illustrates the use of hints inside clozed text. Note how
+# during testing, the hint text `gender' is invisible unless its clozed text
+# area is being hidden, in which case that text is replaced by `[gender...]'
+
 *** Grammar Rule                                     :drill:
     :PROPERTIES:
     :DRILL_CARD_TYPE: hide1cloze
