@@ -371,6 +371,10 @@ interval was greater than ORG-DRILL-DAYS-BEFORE-OLD days.")
 (defvar *org-drill-cram-mode* nil
   "Are we in 'cram mode', where all items are considered due
 for review unless they were already reviewed in the recent past?")
+(defvar org-drill-scheduling-properties
+  '("LEARN_DATA" "DRILL_LAST_INTERVAL" "DRILL_REPEATS_SINCE_FAIL"
+    "DRILL_TOTAL_REPEATS" "DRILL_FAILURE_COUNT" "DRILL_AVERAGE_QUALITY"
+    "DRILL_EASE" "DRILL_LAST_QUALITY" "DRILL_LAST_REVIEWED"))
 
 
 ;;; Make the above settings safe as file-local variables.
@@ -449,6 +453,11 @@ Example: (round-float 3.56755765 3) -> 3.568"
    (concat "[" (substring (cdr org-time-stamp-formats) 1 -1) "]")
    time))
 
+
+(defun org-map-drill-entries (func scope &rest skip)
+  "Like `org-map-entries', but only drill entries are processed."
+  (apply 'org-map-entries func
+         (concat "+" org-drill-question-tag) scope skip))
 
 
 (defmacro with-hidden-cloze-text (&rest body)
@@ -1998,7 +2007,7 @@ than starting a new one."
             (unless resume-p
               (let ((org-trust-scanner-tags t)
                     (warned-about-id-creation nil))
-                (org-map-entries
+                (org-map-drill-entries
                  (lambda ()
                    (when (zerop (% (incf cnt) 50))
                      (message "Processing drill items: %4d%s"
@@ -2050,7 +2059,7 @@ than starting a new one."
                         (t
                          (push (point-marker)
                                *org-drill-old-mature-entries*)))))))
-                 (concat "+" org-drill-question-tag) scope)
+                 scope)
                 ;; Order 'overdue' items so that the most overdue will tend to
                 ;; come up for review first, while keeping exact order random
                 (org-drill-order-overdue-entries overdue-data)
@@ -2115,15 +2124,8 @@ exiting them with the `edit' option."
 
 
 (defun org-drill-strip-entry-data ()
-  (org-delete-property "LEARN_DATA")
-  (org-delete-property "DRILL_LAST_INTERVAL")
-  (org-delete-property "DRILL_REPEATS_SINCE_FAIL")
-  (org-delete-property "DRILL_TOTAL_REPEATS")
-  (org-delete-property "DRILL_FAILURE_COUNT")
-  (org-delete-property "DRILL_AVERAGE_QUALITY")
-  (org-delete-property "DRILL_EASE")
-  (org-delete-property "DRILL_LAST_QUALITY")
-  (org-delete-property "DRILL_LAST_REVIEWED")
+  (dolist (prop org-drill-scheduling-properties)
+    (org-delete-property prop))
   (org-schedule t))
 
 
@@ -2136,8 +2138,15 @@ values as `org-drill'."
   (interactive)
   (when (yes-or-no-p
          "Delete scheduling data from ALL items in scope: are you sure?")
-    (org-map-entries 'org-drill-strip-entry-data
-                     "" scope)
+    (cond
+     ((null scope)
+      ;; Scope is the current buffer. This means we can use
+      ;; `org-delete-property-globally', which is faster.
+      (dolist (prop org-drill-scheduling-properties)
+        (org-delete-property-globally prop))
+      (org-map-drill-entries (lambda () (org-schedule t)) scope))
+     (t
+      (org-map-drill-entries 'org-drill-strip-entry-data scope)))
     (message "Done.")))
 
 
@@ -2165,16 +2174,19 @@ the tag 'imported'."
             (m nil))
         (flet ((paste-tree-here (&optional level)
                                 (org-paste-subtree level)
+                                (org-drill-strip-entry-data)
                                 (org-toggle-tag "imported" 'on)
-                                (org-map-entries
+                                (org-map-drill-entries
                                  (lambda ()
                                    (let ((id (org-id-get)))
+                                     (org-drill-strip-entry-data)
                                      (unless (gethash id *org-drill-dest-id-table*)
                                        (puthash id (point-marker)
                                                 *org-drill-dest-id-table*))))
-                                 (concat "+" org-drill-question-tag) 'tree)))
+                                 'tree)))
           (unless path
             (setq path (org-get-outline-path)))
+          (org-copy-subtree)
           (switch-to-buffer dest)
           (setq m
                 (condition-case nil
@@ -2192,7 +2204,7 @@ the tag 'imported'."
                        (newline)
                        (paste-tree-here)))))))
           (goto-char m)
-          (org-forward-same-level)
+          (outline-next-heading)
           (newline)
           (forward-line -1)
           (paste-tree-here (1+ (or (org-current-level) 0)))
@@ -2224,15 +2236,14 @@ wants to migrate to the updated set without losing their scheduling data."
     ;; Compile list of all IDs in the destination buffer.
     (clrhash *org-drill-dest-id-table*)
     (with-current-buffer dest
-      (org-map-entries
+      (org-map-drill-entries
        (lambda ()
          (let ((this-id (org-id-get)))
            (when this-id
-             (puthash this-id (point-marker) *org-drill-dest-id-table*))))
-       (concat "+" org-drill-question-tag)))
+             (puthash this-id (point-marker) *org-drill-dest-id-table*))))))
     ;; Look through all entries in source buffer.
     (with-current-buffer src
-      (org-map-entries
+      (org-map-drill-entries
        (lambda ()
          (let ((id (org-id-get))
                (last-quality nil) (last-reviewed nil)
@@ -2269,24 +2280,7 @@ wants to migrate to the updated set without losing their scheduling data."
              ;; item in SRC has ID, but no matching ID in DEST.
              ;; It must be a new item that does not exist in DEST.
              ;; Copy the entire item to the *end* of DEST.
-             (org-drill-copy-entry-to-other-buffer dest)))))
-       ;; (org-copy-subtree)
-       ;; (save-excursion
-       ;;   (with-current-buffer dest
-       ;;     (goto-char (point-max))
-       ;;     (newline)
-       ;;     (org-paste-subtree)
-       ;;     ;; Check if item has any child drill items. If it does,
-       ;;     ;; store their IDs in the hashtable, to signify that they
-       ;;     ;; now exist in DEST.
-       ;;     (org-map-entries
-       ;;      (lambda ()
-       ;;        (let ((id (org-id-get)))
-       ;;          (unless (gethash id *org-drill-dest-id-table*)
-       ;;            (puthash id (point-marker) *org-drill-dest-id-table*))))
-       ;;      (concat "+" org-drill-question-tag) 'tree)
-       ;;     ))))))
-       (concat "+" org-drill-question-tag)))))
+             (org-drill-copy-entry-to-other-buffer dest)))))))))
 
 
 
