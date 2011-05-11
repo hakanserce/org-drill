@@ -1125,7 +1125,7 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
                                  (round (nth 3 next-review-dates))
                                  (round (nth 4 next-review-dates))
                                  (round (nth 5 next-review-dates)))
-                       "How well did you do? (0-5, ?=help, e=edit, q=quit)")))
+                       "How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)")))
         (cond
          ((stringp input)
           (setq ch (elt input 0)))
@@ -1899,7 +1899,8 @@ Session finished. Press a key to continue..."
       (sit-for 0.5))
     (read-char-exclusive)
 
-    (if (< pass-percent (- 100 org-drill-forgetting-index))
+    (if (and *org-drill-session-qualities*
+             (< pass-percent (- 100 org-drill-forgetting-index)))
         (read-char-exclusive
          (format
           "%s
