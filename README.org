@@ -331,7 +331,7 @@ functions at the end of org-drill.el -- these include:
 - =org-drill-present-verb-conjugation=, which implements the 'conjugate'
   card type. This asks the user to conjugate a verb in a particular tense. It
   demonstrates how the appearance of an entry can be completely altered during
-  a drill session, both during testing and during the display fo the answer.
+  a drill session, both during testing and during the display of the answer.
 - =org-drill-present-translate-number=, which uses a third-party emacs lisp
   library ([[http://www.emacswiki.org/emacs/spell-number.el][spell-number.el]]) to prompt the user to translate random numbers
   to and from any language recognised by that library.
@@ -366,19 +366,7 @@ drill session, put a brief comment ('# ...')  in the item body.
 Start a drill session with =M-x org-drill=. By default, this includes all
 non-hidden topics in the current buffer. =org-drill= takes an optional
 argument, SCOPE, which allows it to take drill items from other
-sources. Possible values for SCOPE are:
-
-- tree :: The subtree starting with the entry at the cursor. (Alternatively you
-          can use =M-x org=drill-tree= to run the drill session -- this will
-          behave the same as =org-drill= if 'tree' was used as the value of
-          SCOPE.)
-- file :: The current buffer, including both hidden and non-hidden items.
-- file-with-archives :: The current buffer, and any archives associated with it.
-- agenda :: All agenda files.
-- agenda-with-archives :: All agenda files with any archive files associated
-     with them.
-- (file1 file2 ...) :: A list of filenames. All files in the list will be
-     scanned.
+sources. See [[scope][below]] for details.
 
 During a drill session, you will be presented with each item, then asked to
 rate your recall of it by pressing a key between 0 and 5. The meaning of these
@@ -501,6 +489,33 @@ the following settings.
 If either of these variables is set to nil, then item count or elapsed time
 will not count as reasons to end the session. If both variables are nil, the
 session will not end until /all/ outstanding items have been reviewed.
+
+
+** Sources of items for drill sessions (scope)
+# <<scope>>
+
+By default, Org-Drill gathers drill items from the current buffer only,
+ignoring any non-visible items. There may be times when you want Org-Drill to
+gather drill items from other sources. You can do this by changing the value of
+the variable =org-drill-scope=. Possible values are:
+
+- file :: The current buffer, ignoring hidden items. This is the default.
+- tree :: The subtree starting with the entry at the cursor. (Alternatively you
+          can use =M-x org=drill-tree= to run the drill session -- this will
+          behave the same as =org-drill= if 'tree' was used as the value of
+          SCOPE.)
+- file-no-restriction :: The current buffer, including both hidden and
+     non-hidden items.
+- file-with-archives :: The current buffer, and any archives associated with it.
+- agenda :: All agenda files.
+- agenda-with-archives :: All agenda files with any archive files associated
+     with them.
+- directory :: All files with the extension '.org' in the same directory as the
+               current file. (The current file will also be included if its
+               extension is .org)
+- (file1 file2 ...) :: A list of filenames. All files in the list will be
+     scanned.
+
 
 
 ** Definition of old and overdue items
@@ -643,11 +658,12 @@ To alter the learn fraction, put the following in your .emacs:
 
 
 ** Per-file customisation settings
+# <<per-file settings>>
 
-
-Most of the above settings are safe as file-local variables. This means you can
-include a commented section like this at the end of your .org file to apply
-special settings when running a Drill session using that file:
+Most of Org-Drill's customisation settings are safe as file-local
+variables. This means you can include a commented section like this at the end
+of your .org file to apply special settings when running a Drill session using
+that file:
 
 #+BEGIN_EXAMPLE
 # Local Variables:
@@ -655,6 +671,30 @@ special settings when running a Drill session using that file:
 # org-drill-spaced-repetition-algorithm:  simple8
 # End:
 #+END_EXAMPLE
+
+You can achieve the same effect by including the settings in the 'mode line'
+(this must be the *first line* in the file), like so:
+
+#+BEGIN_EXAMPLE
+# -*- org-drill-maximum-items-per-session: 50; org-drill-spaced-repetition-algorithm: simple8 -*-
+#+END_EXAMPLE
+
+In either case you will need to save, close and re-open the file for the
+changes to take effect.
+
+
+* Coping with large collections
+
+
+If you keep all your items in a single file, it may eventually very large. The
+file will be slow to load, and Emacs may have trouble syntax-highlighting the
+file contents correctly.
+
+The easiest steps to solve this problem are:
+1. Move your file into its own dedicated directory.
+2. Divide the file into two or more smaller files.
+3. Within each file, set =org-drill-scope= to 'directory'. See
+   [[per-file settings]] above for instructions about how to do this.
 
 
 * Sharing, merging and synchronising item collections
