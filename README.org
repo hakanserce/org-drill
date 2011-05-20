@@ -293,7 +293,7 @@ the [North|North/South] Island.
 However, this is really cumbersome. Multicloze card types exist for this
 situation. Multicloze cards behave like 'simple' cards, except that when there
 is more than one area marked as cloze text, some but not all of the areas
-are hidden. There are two types of multicloze card:
+can be hidden. There are several types of predefined multicloze card:
 
 1. =hide1cloze= -- one of the marked areas is hidden during review; the others
    all remain visible. The hidden text area is chosen randomly at each review.
@@ -302,6 +302,26 @@ are hidden. There are two types of multicloze card:
 2. =show1cloze= -- only one of the marked areas is visible during review; all
    the others are hidden. The hidden text area is chosen randomly at each
    review.
+3. =hide2cloze= -- like hide1cloze, but 2 marked pieces of text will be hidden,
+   and the rest will be visible.
+4. =show2cloze= -- like show1cloze, but 2 marked pieces of text will be visible,
+   the rest are hidden.
+
+There are also some types of multicloze card where some pieces have an
+increased or decreased chance of being hidden. These are intended for use when
+studying languages: generally it is easy to translate a foreign-language
+sentence into your own language if you have met it before, but it is much
+harder to translate in the other direction. Therefore, you will want to test
+the harder direction more often.
+5. =hide1_firstmore= -- only one of the marked pieces of text will be
+   hidden. 75% of the time (guaranteed), the /first/ piece is hidden; the rest
+   of the time, one of the other pieces is randomly hidden.
+6. =show1_firstless= -- only one of the marked pieces of text will be
+   visible. Only 25% of the time (guaranteed) will the /first/ piece will be
+   visible; the rest of the time, one of the other pieces is randomly visible.
+7. =show1_lastmore= -- only one of the marked pieces of text will be
+   visible. 75% of the time (guaranteed), the /last/ piece will be visible;
+   the rest of the time, one of the other pieces is randomly visible.
 
 So, for the above example, we can actually use the original 'bad' simple card,
 but change its card type to 'hide1cloze'. Each time the card is presented for
@@ -402,6 +422,21 @@ successfully resuming the session. In that case you will need to start a new
 session.
 
 
+* Multiple sequential drill sessions
+
+
+Org-Drill has to scan your entire item database each time you start a new drill
+session. This can be slow if you have a large item collection. If you have a
+large number of 'due' items and want to run a second drill session after
+finishing one session, you can use the command =org-drill-again= to run a new
+drill session that draws from the pool of remaining due items that were not
+tested during the previous session, without re-scanning the item collection.
+
+Also note that if you run =org-drill-resume= and you have actually finished the
+drill session, you will be asked whether you want to start another drill
+session without re-scanning (as if you had run =org-drill-again=).
+
+
 * Cram mode
 
 
@@ -489,6 +524,17 @@ the following settings.
 If either of these variables is set to nil, then item count or elapsed time
 will not count as reasons to end the session. If both variables are nil, the
 session will not end until /all/ outstanding items have been reviewed.
+
+
+** Saving buffers after drill sessions
+
+
+By default, you will be prompted to save all unsaved buffers at the end of a
+drill session. If you don't like this behaviour, use the following setting:
+
+#+BEGIN_EXAMPLE
+(setq org-drill-save-buffers-after-drill-sessions-p nil)
+#+END_EXAMPLE
 
 
 ** Sources of items for drill sessions (scope)

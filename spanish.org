@@ -175,18 +175,19 @@ direction is chosen at random).
 
 The item has several child items, some of which contain notes about the verb,
 others of which are separate drill items relating to the verb. In this example,
-all the child drill items test verb conjugation, and have the 'conjugate' card
-type. Which tense to test is specified by the =VERB_TENSE= property in each item,
-and the information about the verb is retrieved from the parent's
-=VERB_INFINITIVE= and =VERB_TRANSLATION= properties.
+all of the child drill items test verb conjugation, and have the 'conjugate'
+card type. Which tense to test is specified by the =VERB_TENSE= property in
+each item, and the information about the verb is retrieved from the parent's
+=VERB_INFINITIVE=, =VERB_TRANSLATION= and =VERB_INFINITIVE_HINT= properties.
 
 Some of the conjugation items are empty -- this allows the user to past in
-conjugations as they are learned.
+conjugations as they are learned. They will automatically be excluded from
+drill sessions as long as their bodies remain empty.
 
-Following this item is an [[Old Style Verb][example]] of the "spanish_verb" card type. This is not
-as sophisticated or useful as the above example, but is intended to demonstrate
-how a function can control which subheadings are visible when an item is
-tested.
+Following this item is an [[Old Style Verb][example]] of the older "spanish_verb" card type. This
+is not as sophisticated or useful as the first example, but is intended to
+demonstrate how a function can control which subheadings are visible when an
+item is tested.
 
 
 *** Regular Verb: bailar                                            :verb:drill:
@@ -195,6 +196,7 @@ tested.
   :VERB_TRANSLATION: "to dance"
   :DRILL_CARD_TYPE: hide1cloze
   :DATE_ADDED: [2011-04-30 Sat]
+  :VERB_INFINITIVE_HINT: "b..."
   :END:
 
 Sp:  [bailar]
@@ -287,6 +289,48 @@ to sing
 **** Notes
 
 Regular verb.
+
+
+** Sentences
+
+
+It is generally a lot harder for language students to translate /to/ the
+foreign language, than to translate /from/ it. This is because when you see a
+sentence in the foreign language, you can often get the sense of the sentence
+by recognising the nouns and verbs; once this is achieved, combining them into
+a grammatically correct sentence in your native tongue is automatic and
+effortless. However, in the other direction, not only do you have to recall the
+correct nouns, verbs and so on, but you also have to put the words in the right
+order and get all the grammar and "in-between words" correct.
+
+Therefore, if you are learning a language you should generally test your
+ability to translate into the language, more often than you test your ability
+in the other direction.
+
+The following is an example of the card type =hide1_firstmore=. This card type
+works like =hide1cloze= but the /first/ clozed text area is guaranteed to be
+hidden 75% of the time.
+
+The second example is of a similar card type, =show1_firstless=. Here only 1
+clozed text area is visible during testing. 75% of the time, the /first/ area
+is guaranteed to be one of the hidden areas.
+
+
+*** Sentence                                                             :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: hide1_firstmore
+    :END:
+
+Sp:  [La mujer cuyo perro estamos buscando es mi jefe.]
+En:  [The woman whose dog we’re seeking is my boss.]
+
+*** Adverb                                                               :drill:
+    :PROPERTIES:
+    :DRILL_CARD_TYPE: show1_firstless
+    :END:
+
+Sp:  [entre]
+En:  [between] or [among]
 
 
 ** Random Numbers

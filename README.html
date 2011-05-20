@@ -7,7 +7,7 @@ lang="en" xml:lang="en">
 <title>Org-Drill</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2011-05-12 10:29:29 "/>
+<meta name="generated" content="2011-05-20 23:13:33 NZST"/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -103,28 +103,30 @@ lang="en" xml:lang="en">
 </ul>
 </li>
 <li><a href="#sec-5">Running the drill session </a></li>
-<li><a href="#sec-6">Cram mode </a></li>
-<li><a href="#sec-7">Leeches </a></li>
-<li><a href="#sec-8">Customisation </a>
+<li><a href="#sec-6">Multiple sequential drill sessions </a></li>
+<li><a href="#sec-7">Cram mode </a></li>
+<li><a href="#sec-8">Leeches </a></li>
+<li><a href="#sec-9">Customisation </a>
 <ul>
-<li><a href="#sec-8_1">Visual appearance of items during drill sessions </a></li>
-<li><a href="#sec-8_2">Duration of drill sessions </a></li>
-<li><a href="#sec-8_3">Sources of items for drill sessions (scope) </a></li>
-<li><a href="#sec-8_4">Definition of old and overdue items </a></li>
-<li><a href="#sec-8_5">Spaced repetition algorithm </a>
+<li><a href="#sec-9_1">Visual appearance of items during drill sessions </a></li>
+<li><a href="#sec-9_2">Duration of drill sessions </a></li>
+<li><a href="#sec-9_3">Saving buffers after drill sessions </a></li>
+<li><a href="#sec-9_4">Sources of items for drill sessions (scope) </a></li>
+<li><a href="#sec-9_5">Definition of old and overdue items </a></li>
+<li><a href="#sec-9_6">Spaced repetition algorithm </a>
 <ul>
-<li><a href="#sec-8_5_1">Choice of algorithm </a></li>
-<li><a href="#sec-8_5_2">Random variation of repetition intervals </a></li>
-<li><a href="#sec-8_5_3">Adjustment for early or late review of items </a></li>
-<li><a href="#sec-8_5_4">Adjusting item difficulty globally </a></li>
+<li><a href="#sec-9_6_1">Choice of algorithm </a></li>
+<li><a href="#sec-9_6_2">Random variation of repetition intervals </a></li>
+<li><a href="#sec-9_6_3">Adjustment for early or late review of items </a></li>
+<li><a href="#sec-9_6_4">Adjusting item difficulty globally </a></li>
 </ul>
 </li>
-<li><a href="#sec-8_6">Per-file customisation settings </a></li>
+<li><a href="#sec-9_7">Per-file customisation settings </a></li>
 </ul>
 </li>
-<li><a href="#sec-9">Coping with large collections </a></li>
-<li><a href="#sec-10">Sharing, merging and synchronising item collections </a></li>
-<li><a href="#sec-11">Incremental reading </a></li>
+<li><a href="#sec-10">Coping with large collections </a></li>
+<li><a href="#sec-11">Sharing, merging and synchronising item collections </a></li>
+<li><a href="#sec-12">Incremental reading </a></li>
 </ul>
 </div>
 </div>
@@ -526,7 +528,7 @@ the [North|North/South] Island and has a population of about [400,000].
 <p>
 But this card will be difficult to remember. If you get just one of the 4
 hidden facts wrong, you will fail the card. A card like this is likely to
-become a <a href="#sec-7">leech</a>.
+become a <a href="#sec-8">leech</a>.
 </p>
 <p>
 A better way to express all these facts using 'simple' cards is to create
@@ -567,7 +569,7 @@ the [North|North/South] Island.
 However, this is really cumbersome. Multicloze card types exist for this
 situation. Multicloze cards behave like 'simple' cards, except that when there
 is more than one area marked as cloze text, some but not all of the areas
-are hidden. There are two types of multicloze card:
+can be hidden. There are several types of predefined multicloze card:
 </p>
 <ol>
 <li><code>hide1cloze</code> &ndash; one of the marked areas is hidden during review; the others
@@ -578,6 +580,35 @@ are hidden. There are two types of multicloze card:
 <li><code>show1cloze</code> &ndash; only one of the marked areas is visible during review; all
    the others are hidden. The hidden text area is chosen randomly at each
    review.
+</li>
+<li><code>hide2cloze</code> &ndash; like hide1cloze, but 2 marked pieces of text will be hidden,
+   and the rest will be visible.
+</li>
+<li><code>show2cloze</code> &ndash; like show1cloze, but 2 marked pieces of text will be visible,
+   the rest are hidden.
+</li>
+</ol>
+
+
+<p>
+There are also some types of multicloze card where some pieces have an
+increased or decreased chance of being hidden. These are intended for use when
+studying languages: generally it is easy to translate a foreign-language
+sentence into your own language if you have met it before, but it is much
+harder to translate in the other direction. Therefore, you will want to test
+the harder direction more often.
+</p><ol>
+<li><code>hide1_firstmore</code> &ndash; only one of the marked pieces of text will be
+   hidden. 75% of the time (guaranteed), the <i>first</i> piece is hidden; the rest
+   of the time, one of the other pieces is randomly hidden.
+</li>
+<li><code>show1_firstless</code> &ndash; only one of the marked pieces of text will be
+   visible. Only 25% of the time (guaranteed) will the <i>first</i> piece will be
+   visible; the rest of the time, one of the other pieces is randomly visible.
+</li>
+<li><code>show1_lastmore</code> &ndash; only one of the marked pieces of text will be
+   visible. 75% of the time (guaranteed), the <i>last</i> piece will be visible;
+   the rest of the time, one of the other pieces is randomly visible.
 </li>
 </ol>
 
@@ -683,7 +714,7 @@ drill session, put a brief comment ('# &hellip;')  in the item body.
 Start a drill session with <code>M-x org-drill</code>. By default, this includes all
 non-hidden topics in the current buffer. <code>org-drill</code> takes an optional
 argument, SCOPE, which allows it to take drill items from other
-sources. See <a href="#sec-8_3">below</a> for details.
+sources. See <a href="#sec-9_4">below</a> for details.
 </p>
 <p>
 During a drill session, you will be presented with each item, then asked to
@@ -738,8 +769,32 @@ session.
 </div>
 
 <div id="outline-container-6" class="outline-2">
-<h2 id="sec-6">Cram mode </h2>
+<h2 id="sec-6">Multiple sequential drill sessions </h2>
 <div class="outline-text-2" id="text-6">
+
+
+
+<p>
+Org-Drill has to scan your entire item database each time you start a new drill
+session. This can be slow if you have a large item collection. If you have a
+large number of 'due' items and want to run a second drill session after
+finishing one session, you can use the command <code>org-drill-again</code> to run a new
+drill session that draws from the pool of remaining due items that were not
+tested during the previous session, without re-scanning the item collection.
+</p>
+<p>
+Also note that if you run <code>org-drill-resume</code> and you have actually finished the
+drill session, you will be asked whether you want to start another drill
+session without re-scanning (as if you had run <code>org-drill-again</code>).
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-7" class="outline-2">
+<h2 id="sec-7">Cram mode </h2>
+<div class="outline-text-2" id="text-7">
 
 
 
@@ -758,9 +813,9 @@ variable <code>org-drill-cram-hours</code>).
 
 </div>
 
-<div id="outline-container-7" class="outline-2">
-<h2 id="sec-7"><a name="leeches" id="leeches"></a>Leeches </h2>
-<div class="outline-text-2" id="text-7">
+<div id="outline-container-8" class="outline-2">
+<h2 id="sec-8"><a name="leeches" id="leeches"></a>Leeches </h2>
+<div class="outline-text-2" id="text-8">
 
 
 <p>
@@ -810,9 +865,9 @@ See <a href="http://www.supermemo.com/help/leech.htm">the SuperMemo website</a> 
 
 </div>
 
-<div id="outline-container-8" class="outline-2">
-<h2 id="sec-8">Customisation </h2>
-<div class="outline-text-2" id="text-8">
+<div id="outline-container-9" class="outline-2">
+<h2 id="sec-9">Customisation </h2>
+<div class="outline-text-2" id="text-9">
 
 
 
@@ -825,9 +880,9 @@ settings by adding elisp code to your configuration file (<code>.emacs</code>).
 
 </div>
 
-<div id="outline-container-8_1" class="outline-3">
-<h3 id="sec-8_1">Visual appearance of items during drill sessions </h3>
-<div class="outline-text-3" id="text-8_1">
+<div id="outline-container-9_1" class="outline-3">
+<h3 id="sec-9_1">Visual appearance of items during drill sessions </h3>
+<div class="outline-text-3" id="text-9_1">
 
 
 
@@ -861,9 +916,9 @@ invisible while each item is being tested, add:
 
 </div>
 
-<div id="outline-container-8_2" class="outline-3">
-<h3 id="sec-8_2">Duration of drill sessions </h3>
-<div class="outline-text-3" id="text-8_2">
+<div id="outline-container-9_2" class="outline-3">
+<h3 id="sec-9_2">Duration of drill sessions </h3>
+<div class="outline-text-3" id="text-9_2">
 
 
 
@@ -891,9 +946,32 @@ session will not end until <i>all</i> outstanding items have been reviewed.
 
 </div>
 
-<div id="outline-container-8_3" class="outline-3">
-<h3 id="sec-8_3"><a name="scope" id="scope"></a>Sources of items for drill sessions (scope) </h3>
-<div class="outline-text-3" id="text-8_3">
+<div id="outline-container-9_3" class="outline-3">
+<h3 id="sec-9_3">Saving buffers after drill sessions </h3>
+<div class="outline-text-3" id="text-9_3">
+
+
+
+<p>
+By default, you will be prompted to save all unsaved buffers at the end of a
+drill session. If you don't like this behaviour, use the following setting:
+</p>
+
+
+
+<pre class="example">(setq org-drill-save-buffers-after-drill-sessions-p nil)
+</pre>
+
+
+
+
+</div>
+
+</div>
+
+<div id="outline-container-9_4" class="outline-3">
+<h3 id="sec-9_4"><a name="scope" id="scope"></a>Sources of items for drill sessions (scope) </h3>
+<div class="outline-text-3" id="text-9_4">
 
 
 <p>
@@ -934,9 +1012,9 @@ the variable <code>org-drill-scope</code>. Possible values are:
 
 </div>
 
-<div id="outline-container-8_4" class="outline-3">
-<h3 id="sec-8_4">Definition of old and overdue items </h3>
-<div class="outline-text-3" id="text-8_4">
+<div id="outline-container-9_5" class="outline-3">
+<h3 id="sec-9_5">Definition of old and overdue items </h3>
+<div class="outline-text-3" id="text-9_5">
 
 
 
@@ -995,18 +1073,18 @@ of 10 days or less. To change this, use the following:
 
 </div>
 
-<div id="outline-container-8_5" class="outline-3">
-<h3 id="sec-8_5">Spaced repetition algorithm </h3>
-<div class="outline-text-3" id="text-8_5">
+<div id="outline-container-9_6" class="outline-3">
+<h3 id="sec-9_6">Spaced repetition algorithm </h3>
+<div class="outline-text-3" id="text-9_6">
 
 
 
 
 </div>
 
-<div id="outline-container-8_5_1" class="outline-4">
-<h4 id="sec-8_5_1">Choice of algorithm </h4>
-<div class="outline-text-4" id="text-8_5_1">
+<div id="outline-container-9_6_1" class="outline-4">
+<h4 id="sec-9_6_1">Choice of algorithm </h4>
+<div class="outline-text-4" id="text-9_6_1">
 
 
 
@@ -1048,9 +1126,9 @@ SuperMemo algorithms. These are:
 
 </div>
 
-<div id="outline-container-8_5_2" class="outline-4">
-<h4 id="sec-8_5_2">Random variation of repetition intervals </h4>
-<div class="outline-text-4" id="text-8_5_2">
+<div id="outline-container-9_6_2" class="outline-4">
+<h4 id="sec-9_6_2">Random variation of repetition intervals </h4>
+<div class="outline-text-4" id="text-9_6_2">
 
 
 
@@ -1084,9 +1162,9 @@ your <code>.emacs</code>:
 
 </div>
 
-<div id="outline-container-8_5_3" class="outline-4">
-<h4 id="sec-8_5_3">Adjustment for early or late review of items </h4>
-<div class="outline-text-4" id="text-8_5_3">
+<div id="outline-container-9_6_3" class="outline-4">
+<h4 id="sec-9_6_3">Adjustment for early or late review of items </h4>
+<div class="outline-text-4" id="text-9_6_3">
 
 
 
@@ -1113,9 +1191,9 @@ effect on the SM2 algorithm.
 
 </div>
 
-<div id="outline-container-8_5_4" class="outline-4">
-<h4 id="sec-8_5_4">Adjusting item difficulty globally </h4>
-<div class="outline-text-4" id="text-8_5_4">
+<div id="outline-container-9_6_4" class="outline-4">
+<h4 id="sec-9_6_4">Adjusting item difficulty globally </h4>
+<div class="outline-text-4" id="text-9_6_4">
 
 
 
@@ -1168,9 +1246,9 @@ To alter the learn fraction, put the following in your .emacs:
 
 </div>
 
-<div id="outline-container-8_6" class="outline-3">
-<h3 id="sec-8_6"><a name="per-file-settings" id="per-file-settings"></a>Per-file customisation settings </h3>
-<div class="outline-text-3" id="text-8_6">
+<div id="outline-container-9_7" class="outline-3">
+<h3 id="sec-9_7"><a name="per-file-settings" id="per-file-settings"></a>Per-file customisation settings </h3>
+<div class="outline-text-3" id="text-9_7">
 
 
 <p>
@@ -1212,9 +1290,9 @@ changes to take effect.
 
 </div>
 
-<div id="outline-container-9" class="outline-2">
-<h2 id="sec-9">Coping with large collections </h2>
-<div class="outline-text-2" id="text-9">
+<div id="outline-container-10" class="outline-2">
+<h2 id="sec-10">Coping with large collections </h2>
+<div class="outline-text-2" id="text-10">
 
 
 
@@ -1231,7 +1309,7 @@ The easiest steps to solve this problem are:
 <li>Divide the file into two or more smaller files.
 </li>
 <li>Within each file, set <code>org-drill-scope</code> to 'directory'. See
-   <a href="#sec-8_6">per-file settings</a> above for instructions about how to do this.
+   <a href="#sec-9_7">per-file settings</a> above for instructions about how to do this.
 </li>
 </ol>
 
@@ -1239,9 +1317,9 @@ The easiest steps to solve this problem are:
 
 </div>
 
-<div id="outline-container-10" class="outline-2">
-<h2 id="sec-10">Sharing, merging and synchronising item collections </h2>
-<div class="outline-text-2" id="text-10">
+<div id="outline-container-11" class="outline-2">
+<h2 id="sec-11">Sharing, merging and synchronising item collections </h2>
+<div class="outline-text-2" id="text-11">
 
 
 
@@ -1303,9 +1381,9 @@ procedure.
 
 </div>
 
-<div id="outline-container-11" class="outline-2">
-<h2 id="sec-11">Incremental reading </h2>
-<div class="outline-text-2" id="text-11">
+<div id="outline-container-12" class="outline-2">
+<h2 id="sec-12">Incremental reading </h2>
+<div class="outline-text-2" id="text-12">
 
 
 
@@ -1463,7 +1541,7 @@ or give it different tags or properties, for example.
 </div>
 </div>
 <div id="postamble">
-<p class="date">Date: 2011-05-12 10:29:29 </p>
+<p class="date">Date: 2011-05-20 23:13:33 NZST</p>
 <p class="author">Author: Paul Sexton</p>
 <p class="creator">Org version 7.5 with Emacs version 23</p>
 <a href="http://validator.w3.org/check?uri=referer">Validate XHTML 1.0</a>
