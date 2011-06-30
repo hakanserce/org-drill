@@ -675,6 +675,20 @@ used. For the SM5 algorithm it will affect early repetitions only. It has no
 effect on the SM2 algorithm.
 
 
+*** Adjusting the first interval (SM5 algorithm only)
+
+
+In the SM5 algorithm, the initial interval after the first successful
+presentation of an item is /always/ 4 days. If you wish to change this for some
+reason, you can do so with:
+
+#+BEGIN_EXAMPLE
+(setq org-drill-sm5-initial-interval 5.0)
+#+END_EXAMPLE
+
+note that this will have no effect if you are not using the SM5 algorithm.
+
+
 *** Adjusting item difficulty globally
 
 

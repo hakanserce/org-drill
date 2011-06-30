@@ -2,7 +2,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.3.4
+;;; Version: 2.3.5
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -2284,6 +2284,19 @@ one of the following values:
        due))))
 
 
+(defun org-drill-progress-message (collected scanned)
+  (when (zerop (% scanned 50))
+    (let* ((meter-width 40)
+           (sym1 (if (oddp (floor scanned (* 50 meter-width))) ?| ?.))
+           (sym2 (if (eql sym1 ?.) ?| ?.)))
+      (message "Collecting due drill items:%4d %s%s"
+              collected
+              (make-string (% (ceiling scanned 50) meter-width)
+                           sym2)
+              (make-string (- meter-width (% (ceiling scanned 50) meter-width))
+                           sym1)))))
+
+
 (defun org-drill (&optional scope resume-p)
   "Begin an interactive 'drill session'. The user is asked to
 review a series of topics (headers). Each topic is initially
@@ -2344,14 +2357,13 @@ than starting a new one."
                     (warned-about-id-creation nil))
                 (org-map-drill-entries
                  (lambda ()
-                   (when (zerop (% (incf cnt) 50))
-                     (message "Processing drill items: %4d%s"
+                   (org-drill-progress-message
                               (+ (length *org-drill-new-entries*)
                                  (length *org-drill-overdue-entries*)
                                  (length *org-drill-young-mature-entries*)
                                  (length *org-drill-old-mature-entries*)
                                  (length *org-drill-failed-entries*))
-                              (make-string (ceiling cnt 50) ?.)))
+                              (incf cnt))
                    (cond
                     ((not (org-drill-entry-p))
                      nil)               ; skip
