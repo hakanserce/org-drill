@@ -2,7 +2,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.3.5
+;;; Version: 2.3.6
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -1509,18 +1509,38 @@ concealed by an overlay that displays the string TEXT."
        (org-drill-unreplace-entry-text))))
 
 
-(defun org-drill-replace-entry-text (text)
+(defmacro with-replaced-entry-text-multi (replacements &rest body)
+  "During the execution of BODY, the entire text of the current entry is
+concealed by an overlay that displays the overlays in REPLACEMENTS."
+  `(progn
+     (org-drill-replace-entry-text ,replacements t)
+     (unwind-protect
+         (progn
+           ,@body)
+       (org-drill-unreplace-entry-text))))
+
+
+(defun org-drill-replace-entry-text (text &optional multi-p)
   "Make an overlay that conceals the entire text of the item, not
 including properties or the contents of subheadings. The overlay shows
 the string TEXT.
+If MULTI-P is non-nil, TEXT must be a list of values which are legal
+for the `display' text property. The text of the item will be temporarily
+replaced by all of these items, in the order in which they appear in
+the list.
 Note: does not actually alter the item."
-  (let ((ovl (make-overlay (point-min)
-                           (save-excursion
-                             (outline-next-heading)
-                             (point)))))
-    (overlay-put ovl 'category
-                 'org-drill-replaced-text-overlay)
-    (overlay-put ovl 'display text)))
+  (cond
+   ((and multi-p
+         (listp text))
+    (org-drill-replace-entry-text-multi text))
+   (t
+    (let ((ovl (make-overlay (point-min)
+                             (save-excursion
+                               (outline-next-heading)
+                               (point)))))
+      (overlay-put ovl 'category
+                   'org-drill-replaced-text-overlay)
+      (overlay-put ovl 'display text)))))
 
 
 (defun org-drill-unreplace-entry-text ()
@@ -1528,6 +1548,27 @@ Note: does not actually alter the item."
     (dolist (ovl (overlays-in (point-min) (point-max)))
       (when (eql 'org-drill-replaced-text-overlay (overlay-get ovl 'category))
         (delete-overlay ovl)))))
+
+
+(defun org-drill-replace-entry-text-multi (replacements)
+  "Make overlays that conceal the entire text of the item, not
+including properties or the contents of subheadings. The overlay shows
+the string TEXT.
+Note: does not actually alter the item."
+  (let ((ovl nil)
+        (p-min (point-min))
+        (p-max (save-excursion
+                 (outline-next-heading)
+                 (point))))
+    (assert (>= (- p-max p-min) (length replacements)))
+    (dotimes (i (length replacements))
+      (setq ovl (make-overlay (+ p-min (* 2 i))
+                              (if (= i (1- (length replacements)))
+                                  p-max
+                                (+ p-min (* 2 i) 1))))
+      (overlay-put ovl 'category
+                   'org-drill-replaced-text-overlay)
+      (overlay-put ovl 'display (nth i replacements)))))
 
 
 (defmacro with-replaced-entry-heading (heading &rest body)
@@ -1588,6 +1629,7 @@ Note: does not actually alter the item."
 (defun org-drill-present-default-answer (reschedule-fn)
   (org-drill-hide-subheadings-if 'org-drill-entry-p)
   (org-drill-unhide-clozed-text)
+  (org-display-inline-images t)
   (with-hidden-cloze-hints
    (funcall reschedule-fn)))
 
@@ -1907,6 +1949,21 @@ pieces rather than one."
     question
     (org-drill-hide-all-subheadings-except nil)
     (org-cycle-hide-drawers 'all)
+    (org-display-inline-images t)
+    (prog1 (org-drill-presentation-prompt)
+      (org-drill-hide-subheadings-if 'org-drill-entry-p)))))
+
+
+(defun org-drill-present-card-using-multiple-overlays (replacements &optional answer)
+  "TEXTS is a list of valid values for the 'display' text property.
+Present these overlays, in sequence, as the only
+visible content of the card."
+  (with-hidden-comments
+   (with-replaced-entry-text-multi
+    replacements
+    (org-drill-hide-all-subheadings-except nil)
+    (org-cycle-hide-drawers 'all)
+    (org-display-inline-images t)
     (prog1 (org-drill-presentation-prompt)
       (org-drill-hide-subheadings-if 'org-drill-entry-p)))))
 
@@ -2358,12 +2415,12 @@ than starting a new one."
                 (org-map-drill-entries
                  (lambda ()
                    (org-drill-progress-message
-                              (+ (length *org-drill-new-entries*)
-                                 (length *org-drill-overdue-entries*)
-                                 (length *org-drill-young-mature-entries*)
-                                 (length *org-drill-old-mature-entries*)
-                                 (length *org-drill-failed-entries*))
-                              (incf cnt))
+                    (+ (length *org-drill-new-entries*)
+                       (length *org-drill-overdue-entries*)
+                       (length *org-drill-young-mature-entries*)
+                       (length *org-drill-old-mature-entries*)
+                       (length *org-drill-failed-entries*))
+                    (incf cnt))
                    (cond
                     ((not (org-drill-entry-p))
                      nil)               ; skip
@@ -2450,7 +2507,9 @@ than starting a new one."
     (cond
      (end-pos
       (when (markerp end-pos)
-        (org-drill-goto-entry end-pos))
+        (org-drill-goto-entry end-pos)
+        (org-reveal)
+        (org-show-entry))
       (let ((keystr (command-keybinding-to-string 'org-drill-resume)))
         (message
          "You can continue the drill session with the command `org-drill-resume'.%s"
@@ -2740,7 +2799,14 @@ copy them across."
     ("imperfect" "darkturquoise")
     ("present perfect" "royalblue")
     ;; future tenses
-    ("future" "green"))
+    ("future" "green")
+    ;; moods (backgrounds).
+    ("indicative" nil)                  ; default
+    ("subjunctive" "medium blue")
+    ("conditional" "grey30")
+    ("negative imperative" "red4")
+    ("positive imperative" "darkgreen")
+    )
   "Alist where each entry has the form (TENSE COLOUR), where
 TENSE is a string naming a tense in which verbs can be
 conjugated, and COLOUR is a string specifying a foreground colour
@@ -2756,50 +2822,72 @@ the name of the tense.")
         (inf-hint (org-entry-get (point) "VERB_INFINITIVE_HINT" t))
         (translation (org-entry-get (point) "VERB_TRANSLATION" t))
         (tense (org-entry-get (point) "VERB_TENSE" nil))
+        (mood (org-entry-get (point) "VERB_MOOD" nil))
         (highlight-face nil))
-    (unless (and infinitive translation tense)
-      (error "Missing information for verb conjugation card (%s, %s, %s) at %s"
-             infinitive translation tense (point)))
-    (setq tense (downcase (car (read-from-string tense)))
+    (unless (and infinitive translation (or tense mood))
+      (error "Missing information for verb conjugation card (%s, %s, %s, %s) at %s"
+             infinitive translation tense mood (point)))
+    (setq tense (if tense (downcase (car (read-from-string tense))))
+          mood (if mood (downcase (car (read-from-string mood))))
           infinitive (car (read-from-string infinitive))
           inf-hint (if inf-hint (car (read-from-string inf-hint)))
           translation (car (read-from-string translation)))
     (setq highlight-face
           (list :foreground
                 (or (second (assoc-string tense org-drill-verb-tense-alist t))
-                    "red")))
+                    "hotpink")
+                :background
+                (second (assoc-string mood org-drill-verb-tense-alist t))))
     (setq infinitive (propertize infinitive 'face highlight-face))
     (setq translation (propertize translation 'face highlight-face))
-    (setq tense (propertize tense 'face highlight-face))
-    (list infinitive inf-hint translation tense)))
+    (if tense (setq tense (propertize tense 'face highlight-face)))
+    (if mood (setq mood (propertize mood 'face highlight-face)))
+    (list infinitive inf-hint translation tense mood)))
 
 
 (defun org-drill-present-verb-conjugation ()
   "Present a drill entry whose card type is 'conjugate'."
-  (destructuring-bind (infinitive inf-hint translation tense)
-      (org-drill-get-verb-conjugation-info)
-    (org-drill-present-card-using-text
-     (cond
-      ((zerop (random* 2))
-       (format "\nTranslate the verb\n\n%s\n\nand conjugate for the %s tense.\n\n"
-               infinitive tense))
-      (t
-       (format "\nGive the verb that means\n\n%s %s\n
-and conjugate for the %s tense.\n\n"
-               translation
-               (if inf-hint (format "  [HINT: %s]" inf-hint) "")
-               tense))))))
+  (flet ((tense-and-mood-to-string
+          (tense mood)
+          (cond
+           ((and tense mood)
+            (format "%s tense, %s mood" tense mood))
+           (tense
+            (format "%s tense" tense))
+           (mood
+            (format "%s mood" mood)))))
+    (destructuring-bind (infinitive inf-hint translation tense mood)
+        (org-drill-get-verb-conjugation-info)
+      (org-drill-present-card-using-text
+       (cond
+        ((zerop (random* 2))
+         (format "\nTranslate the verb\n\n%s\n\nand conjugate for the %s.\n\n"
+                 infinitive (tense-and-mood-to-string tense mood)))
+
+        (t
+         (format "\nGive the verb that means\n\n%s %s\n
+and conjugate for the %s.\n\n"
+                 translation
+                 (if inf-hint (format "  [HINT: %s]" inf-hint) "")
+                 (tense-and-mood-to-string tense mood))))))))
 
 
 (defun org-drill-show-answer-verb-conjugation (reschedule-fn)
   "Show the answer for a drill item whose card type is 'conjugate'.
 RESCHEDULE-FN must be a function that calls `org-drill-reschedule' and
 returns its return value."
-  (destructuring-bind (infinitive inf-hint translation tense)
+  (destructuring-bind (infinitive inf-hint translation tense mood)
       (org-drill-get-verb-conjugation-info)
     (with-replaced-entry-heading
-     (format "%s tense of %s ==> %s\n\n"
-             (capitalize tense)
+     (format "%s of %s ==> %s\n\n"
+             (capitalize
+              (cond
+               ((and tense mood)
+                (format "%s tense, %s mood" tense mood))
+               (tense
+                (format "%s tense" tense))
+               (mood
+                (format "%s mood" mood))))
              infinitive translation)
      (funcall reschedule-fn))))
 

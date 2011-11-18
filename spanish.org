@@ -211,9 +211,9 @@ This is a regular verb.
 Bailé con mi novia.
 I danced with my girlfriend.
 
-**** Present Indicative tense                                       :verb:drill:
+**** Simple present tense                                           :verb:drill:
      :PROPERTIES:
-     :VERB_TENSE: "present indicative"
+     :VERB_TENSE: "simple present"
      :DRILL_CARD_TYPE: conjugate
      :END:
 
