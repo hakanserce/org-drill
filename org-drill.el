@@ -1620,7 +1620,8 @@ Note: does not actually alter the item."
    (with-hidden-cloze-hints
     (with-hidden-cloze-text
      (org-drill-hide-all-subheadings-except nil)
-     (org-display-inline-images t)
+     (ignore-errors
+       (org-display-inline-images t))
      (org-cycle-hide-drawers 'all)
      (prog1 (org-drill-presentation-prompt)
        (org-drill-hide-subheadings-if 'org-drill-entry-p))))))
@@ -1629,7 +1630,8 @@ Note: does not actually alter the item."
 (defun org-drill-present-default-answer (reschedule-fn)
   (org-drill-hide-subheadings-if 'org-drill-entry-p)
   (org-drill-unhide-clozed-text)
-  (org-display-inline-images t)
+  (ignore-errors
+    (org-display-inline-images t))
   (with-hidden-cloze-hints
    (funcall reschedule-fn)))
 
@@ -1644,7 +1646,8 @@ Note: does not actually alter the item."
            (goto-char (nth (random* (min 2 (length drill-sections)))
                            drill-sections))
            (org-show-subtree)))
-       (org-display-inline-images t)
+       (ignore-errors
+         (org-display-inline-images t))
        (org-cycle-hide-drawers 'all)
        (prog1 (org-drill-presentation-prompt)
          (org-drill-hide-subheadings-if 'org-drill-entry-p)))))))
@@ -1660,7 +1663,8 @@ Note: does not actually alter the item."
          (save-excursion
            (goto-char (nth (random* (length drill-sections)) drill-sections))
            (org-show-subtree)))
-       (org-display-inline-images t)
+       (ignore-errors
+         (org-display-inline-images t))
        (org-cycle-hide-drawers 'all)
        (prog1 (org-drill-presentation-prompt)
          (org-drill-hide-subheadings-if 'org-drill-entry-p)))))))
@@ -1738,7 +1742,8 @@ items if FORCE-SHOW-FIRST or FORCE-SHOW-LAST is non-nil)."
       ;;  while (org-pos-in-regexp (match-beginning 0)
       ;;                           org-bracket-link-regexp 1))
       ;; (org-drill-hide-matched-cloze-text)))))
-      (org-display-inline-images t)
+      (ignore-errors
+        (org-display-inline-images t))
       (org-cycle-hide-drawers 'all)
       (prog1 (org-drill-presentation-prompt)
         (org-drill-hide-subheadings-if 'org-drill-entry-p)
@@ -1785,7 +1790,8 @@ the second to last, etc."
               (incf cnt)
               (if (= cnt to-hide)
                   (org-drill-hide-matched-cloze-text)))))))
-      (org-display-inline-images t)
+      (ignore-errors
+        (org-display-inline-images t))
       (org-cycle-hide-drawers 'all)
       (prog1 (org-drill-presentation-prompt)
         (org-drill-hide-subheadings-if 'org-drill-entry-p)
@@ -1949,7 +1955,8 @@ pieces rather than one."
     question
     (org-drill-hide-all-subheadings-except nil)
     (org-cycle-hide-drawers 'all)
-    (org-display-inline-images t)
+    (ignore-errors
+      (org-display-inline-images t))
     (prog1 (org-drill-presentation-prompt)
       (org-drill-hide-subheadings-if 'org-drill-entry-p)))))
 
@@ -1963,7 +1970,8 @@ visible content of the card."
     replacements
     (org-drill-hide-all-subheadings-except nil)
     (org-cycle-hide-drawers 'all)
-    (org-display-inline-images t)
+    (ignore-errors
+      (org-display-inline-images t))
     (prog1 (org-drill-presentation-prompt)
       (org-drill-hide-subheadings-if 'org-drill-entry-p)))))
 
