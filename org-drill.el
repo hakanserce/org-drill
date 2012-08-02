@@ -188,11 +188,16 @@ during a drill session."
                     window t))
 
 
+(defvar org-drill-hint-separator "||"
+  "String which, if it occurs within a cloze expression, signifies that the
+rest of the expression after the string is a `hint', to be displayed instead of
+the hidden cloze during a test.")
+
+
 (defvar org-drill-cloze-regexp
-  ;; ver 1   "[^][]\\(\\[[^][][^]]*\\]\\)"
-  ;; ver 2   "\\(\\[.*?\\]\\|^[^[[:cntrl:]]*?\\]\\|\\[.*?$\\)"
-  ;; ver 3!  "\\(\\[.*?\\]\\|\\[.*?[[:cntrl:]]+.*?\\]\\)"
-  "\\(\\[[[:cntrl:][:graph:][:space:]]*?\\)\\(\\||.+?\\)\\(\\]\\)")
+  (concat "\\(\\[[[:cntrl:][:graph:][:space:]]+?\\)\\(\\|"
+          (regexp-quote org-drill-hint-separator)
+          ".+?\\)\\(\\]\\)"))
 
 
 (defvar org-drill-cloze-keywords
@@ -221,8 +226,7 @@ during a drill session."
     ("conjugate" org-drill-present-verb-conjugation
      org-drill-show-answer-verb-conjugation)
     ("spanish_verb" . org-drill-present-spanish-verb)
-    ("translate_number" org-drill-present-translate-number
-     org-drill-show-answer-translate-number))
+    ("translate_number" org-drill-present-translate-number))
   "Alist associating card types with presentation functions. Each entry in the
 alist takes one of two forms:
 1. (CARDTYPE . QUESTION-FN), where CARDTYPE is a string or nil (for default),
@@ -417,6 +421,17 @@ this in small increments (for example 0.05-0.1) as it has an
 exponential effect on inter-repetition spacing."
   :group 'org-drill
   :type 'float)
+
+
+(defvar drill-answer nil
+  "Global variable that can be bound to a correct answer when an
+item is being presented. If this variable is non-nil, the default
+presentation function will show its value instead of the default
+behaviour of revealing the contents of the drilled item.
+
+This variable is useful for card types that compute their answers
+-- for example, a card type that asks the student to translate a
+random number to another language. ")
 
 
 (defvar *org-drill-session-qualities* nil)
@@ -1472,19 +1487,22 @@ visual overlay, or with the string TEXT if it is supplied."
 
 (defun org-drill-hide-matched-cloze-text ()
   "Hide the current match with a 'cloze' visual overlay."
-  (let ((ovl (make-overlay (match-beginning 0) (match-end 0))))
+  (let ((ovl (make-overlay (match-beginning 0) (match-end 0)))
+        (hint-sep-pos (string-match-p (regexp-quote org-drill-hint-separator)
+                                      (match-string 0))))
     (overlay-put ovl 'category
                  'org-drill-cloze-overlay-defaults)
-    (when (find ?| (match-string 0))
+    (when (and hint-sep-pos
+               (> hint-sep-pos 1))
       (let ((hint (substring-no-properties
                    (match-string 0)
-                   (1+ (position ?| (match-string 0)))
+                   (+ hint-sep-pos (length org-drill-hint-separator))
                    (1- (length (match-string 0))))))
         (overlay-put
          ovl 'display
          ;; If hint is like `X...' then display [X...]
          ;; otherwise display [...X]
-         (format (if (string-match-p "\\.\\.\\." hint) "[%s]" "[%s...]")
+         (format (if (string-match-p (regexp-quote "...") hint) "[%s]" "[%s...]")
                  hint))))))
 
 
@@ -1607,7 +1625,7 @@ Note: does not actually alter the item."
 
 
 ;;; Presentation functions ====================================================
-
+;;
 ;; Each of these is called with point on topic heading.  Each needs to show the
 ;; topic in the form of a 'question' or with some information 'hidden', as
 ;; appropriate for the card type. The user should then be prompted to press a
@@ -1628,12 +1646,20 @@ Note: does not actually alter the item."
 
 
 (defun org-drill-present-default-answer (reschedule-fn)
-  (org-drill-hide-subheadings-if 'org-drill-entry-p)
-  (org-drill-unhide-clozed-text)
-  (ignore-errors
-    (org-display-inline-images t))
-  (with-hidden-cloze-hints
-   (funcall reschedule-fn)))
+  (cond
+   (drill-answer
+    (with-replaced-entry-text
+     (format "\nAnswer:\n\n  %s\n" drill-answer)
+     (prog1
+         (funcall reschedule-fn)
+       (setq drill-answer nil))))
+   (t
+    (org-drill-hide-subheadings-if 'org-drill-entry-p)
+    (org-drill-unhide-clozed-text)
+    (ignore-errors
+      (org-display-inline-images t))
+    (with-hidden-cloze-hints
+     (funcall reschedule-fn)))))
 
 
 (defun org-drill-present-two-sided-card ()
@@ -1949,10 +1975,12 @@ pieces rather than one."
 
 
 (defun org-drill-present-card-using-text (question &optional answer)
-  "Present the string QUESTION as the only visible content of the card."
+  "Present the string QUESTION as the only visible content of the card.
+If ANSWER is supplied, set the global variable `drill-answer' to its value."
+  (if answer (setq drill-answer answer))
   (with-hidden-comments
    (with-replaced-entry-text
-    question
+    (concat "\n" question)
     (org-drill-hide-all-subheadings-except nil)
     (org-cycle-hide-drawers 'all)
     (ignore-errors
@@ -1964,7 +1992,9 @@ pieces rather than one."
 (defun org-drill-present-card-using-multiple-overlays (replacements &optional answer)
   "TEXTS is a list of valid values for the 'display' text property.
 Present these overlays, in sequence, as the only
-visible content of the card."
+visible content of the card.
+If ANSWER is supplied, set the global variable `drill-answer' to its value."
+  (if answer (setq drill-answer answer))
   (with-hidden-comments
    (with-replaced-entry-text-multi
     replacements
@@ -1999,6 +2029,7 @@ See `org-drill' for more details."
         ;; fontification functions in `outline-view-change-hook' can cause big
         ;; slowdowns, so we temporarily bind this variable to nil here.
         (outline-view-change-hook nil))
+    (setq drill-answer nil)
     (org-save-outline-visibility t
       (save-restriction
         (org-narrow-to-subtree)
@@ -2034,6 +2065,7 @@ See `org-drill' for more details."
 
 (defun org-drill-entries-pending-p ()
   (or *org-drill-again-entries*
+      *org-drill-current-item*
       (and (not (org-drill-maximum-item-count-reached-p))
            (not (org-drill-maximum-duration-reached-p))
            (or *org-drill-new-entries*
@@ -2045,7 +2077,8 @@ See `org-drill' for more details."
 
 
 (defun org-drill-pending-entry-count ()
-  (+ (length *org-drill-new-entries*)
+  (+ (if (markerp *org-drill-current-item*) 1 0)
+     (length *org-drill-new-entries*)
      (length *org-drill-failed-entries*)
      (length *org-drill-young-mature-entries*)
      (length *org-drill-old-mature-entries*)
@@ -2157,6 +2190,7 @@ RESUMING-P is true if we are resuming a suspended drill session."
               (setq end-pos (point-marker))
               (return-from org-drill-entries nil))
              ((eql result 'skip)
+              (setq *org-drill-current-item* nil)
               nil)                      ; skip this item
              (t
               (cond
@@ -2166,7 +2200,8 @@ RESUMING-P is true if we are resuming a suspended drill session."
                           (shuffle-list *org-drill-again-entries*)))
                 (push-end m *org-drill-again-entries*))
                (t
-                (push m *org-drill-done-entries*))))))))))))
+                (push m *org-drill-done-entries*)))
+              (setq *org-drill-current-item* nil))))))))))
 
 
 
@@ -2448,45 +2483,13 @@ than starting a new one."
                          (:old
                           (push (point-marker) *org-drill-old-mature-entries*)))))))
                  scope)
-                ;; (let ((due (org-drill-entry-days-overdue))
-                ;;       (last-int (org-drill-entry-last-interval 1)))
-                ;;   (cond
-                ;;    ((org-drill-entry-empty-p)
-                ;;     nil)           ; skip -- item body is empty
-                ;;    ((or (null due) ; unscheduled - usually a skipped leech
-                ;;         (minusp due)) ; scheduled in the future
-                ;;     (incf *org-drill-dormant-entry-count*)
-                ;;     (if (eq -1 due)
-                ;;         (incf *org-drill-due-tomorrow-count*)))
-                ;;    ((org-drill-entry-new-p)
-                ;;     (push (point-marker) *org-drill-new-entries*))
-                ;;    ((<= (org-drill-entry-last-quality 9999)
-                ;;         org-drill-failure-quality)
-                ;;     ;; Mature entries that were failed last time are
-                ;;     ;; FAILED, regardless of how young, old or overdue
-                ;;     ;; they are.
-                ;;     (push (point-marker) *org-drill-failed-entries*))
-                ;;    ((org-drill-entry-overdue-p due last-int)
-                ;;     ;; Overdue status overrides young versus old
-                ;;     ;; distinction.
-                ;;     ;; Store marker + due, for sorting of overdue entries
-                ;;     (push (cons (point-marker) due) overdue-data))
-                ;;    ((<= (org-drill-entry-last-interval 9999)
-                ;;         org-drill-days-before-old)
-                ;;     ;; Item is 'young'.
-                ;;     (push (point-marker)
-                ;;           *org-drill-young-mature-entries*))
-                ;;    (t
-                ;;     (push (point-marker)
-                ;;           *org-drill-old-mature-entries*))))
-                ;; Order 'overdue' items so that the most overdue will tend to
-                ;; come up for review first, while keeping exact order random
                 (org-drill-order-overdue-entries overdue-data)
                 (setq *org-drill-overdue-entry-count*
                       (length *org-drill-overdue-entries*))))
             (setq *org-drill-due-entry-count* (org-drill-pending-entry-count))
             (cond
-             ((and (null *org-drill-new-entries*)
+             ((and (null *org-drill-current-item*)
+                   (null *org-drill-new-entries*)
                    (null *org-drill-failed-entries*)
                    (null *org-drill-overdue-entries*)
                    (null *org-drill-young-mature-entries*)
@@ -2889,13 +2892,17 @@ returns its return value."
 ;;; `translate_number' card type ==============================================
 ;;; See spanish.org for usage
 
-(defvar *drilled-number* 0)
-(defvar *drilled-number-direction* 'to-english)
+
+(defun spelln-integer-in-language (n lang)
+  (let ((spelln-language lang))
+    (spelln-integer-in-words n)))
 
 (defun org-drill-present-translate-number ()
   (let ((num-min (read (org-entry-get (point) "DRILL_NUMBER_MIN")))
         (num-max (read (org-entry-get (point) "DRILL_NUMBER_MAX")))
         (language (read (org-entry-get (point) "DRILL_LANGUAGE" t)))
+        (drilled-number 0)
+        (drilled-number-direction 'to-english)
         (highlight-face 'font-lock-warning-face))
     (cond
      ((not (fboundp 'spelln-integer-in-words))
@@ -2908,46 +2915,49 @@ returns its return value."
       (if (> num-min num-max)
           (psetf num-min num-max
                  num-max num-min))
-      (setq *drilled-number*
+      (setq drilled-number
             (+ num-min (random* (abs (1+ (- num-max num-min))))))
-      (setq *drilled-number-direction*
+      (setq drilled-number-direction
             (if (zerop (random* 2)) 'from-english 'to-english))
-      (org-drill-present-card-using-text
-       (if (eql 'to-english *drilled-number-direction*)
-           (format "\nTranslate into English:\n\n%s\n"
-                   (let ((spelln-language language))
-                     (propertize
-                      (spelln-integer-in-words *drilled-number*)
-                      'face highlight-face)))
+      (cond
+       ((eql 'to-english drilled-number-direction)
+        (org-drill-present-card-using-text
+         (format "\nTranslate into English:\n\n%s\n"
+                 (propertize
+                  (spelln-integer-in-language drilled-number language)
+                  'face highlight-face))
+         (spelln-integer-in-language drilled-number 'english-gb)))
+       (t
+        (org-drill-present-card-using-text
          (format "\nTranslate into %s:\n\n%s\n"
                  (capitalize (format "%s" language))
-                 (let ((spelln-language 'english-gb))
-                   (propertize
-                    (spelln-integer-in-words *drilled-number*)
-                    'face highlight-face)))))))))
+                 (propertize
+                  (spelln-integer-in-language drilled-number 'english-gb)
+                  'face highlight-face))
+         (spelln-integer-in-language drilled-number language))))))))
 
 
-(defun org-drill-show-answer-translate-number (reschedule-fn)
-  (let* ((language (read (org-entry-get (point) "DRILL_LANGUAGE" t)))
-         (highlight-face 'font-lock-warning-face)
-         (non-english
-          (let ((spelln-language language))
-            (propertize (spelln-integer-in-words *drilled-number*)
-                        'face highlight-face)))
-         (english
-          (let ((spelln-language 'english-gb))
-            (propertize (spelln-integer-in-words *drilled-number*)
-                        'face 'highlight-face))))
-    (with-replaced-entry-text
-     (cond
-      ((eql 'to-english *drilled-number-direction*)
-       (format "\nThe English translation of %s is:\n\n%s\n"
-               non-english english))
-      (t
-       (format "\nThe %s translation of %s is:\n\n%s\n"
-               (capitalize (format "%s" language))
-               english non-english)))
-     (funcall reschedule-fn))))
+;; (defun org-drill-show-answer-translate-number (reschedule-fn)
+;;   (let* ((language (read (org-entry-get (point) "DRILL_LANGUAGE" t)))
+;;          (highlight-face 'font-lock-warning-face)
+;;          (non-english
+;;           (let ((spelln-language language))
+;;             (propertize (spelln-integer-in-words *drilled-number*)
+;;                         'face highlight-face)))
+;;          (english
+;;           (let ((spelln-language 'english-gb))
+;;             (propertize (spelln-integer-in-words *drilled-number*)
+;;                         'face 'highlight-face))))
+;;     (with-replaced-entry-text
+;;      (cond
+;;       ((eql 'to-english *drilled-number-direction*)
+;;        (format "\nThe English translation of %s is:\n\n%s\n"
+;;                non-english english))
+;;       (t
+;;        (format "\nThe %s translation of %s is:\n\n%s\n"
+;;                (capitalize (format "%s" language))
+;;                english non-english)))
+;;      (funcall reschedule-fn))))
 
 
 ;;; `spanish_verb' card type ==================================================
