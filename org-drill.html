@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
                "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"
-lang="en" xml:lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>org-drill.el &ndash; flashcards and spaced repetition for org-mode</title>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+<meta name="title" content="org-drill.el &ndash; flashcards and spaced repetition for org-mode"/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2011-05-21 00:08:14 NZST"/>
+<meta name="generated" content="2012-09-05T10:41+1200"/>
 <meta name="author" content="Paul Sexton"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -44,6 +44,12 @@ lang="en" xml:lang="en">
   dt { font-weight: bold; }
   div.figure { padding: 0.5em; }
   div.figure p { text-align: center; }
+  div.inlinetask {
+    padding:10px;
+    border:2px solid gray;
+    margin:10px;
+    background: #ffffcc;
+  }
   textarea { overflow-x: auto; }
   .linenr { font-size:smaller }
   .code-highlighted {background-color:#ffff00;}
@@ -79,62 +85,68 @@ lang="en" xml:lang="en">
 
 </head>
 <body>
-<div id="content">
 
+<div id="preamble">
+
+</div>
+
+<div id="content">
 <h1 class="title">org-drill.el &ndash; flashcards and spaced repetition for org-mode</h1>
+
 
 
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#sec-1">General </a></li>
-<li><a href="#sec-2">Installation </a></li>
-<li><a href="#sec-3">Demonstration </a></li>
-<li><a href="#sec-4">Writing the questions </a>
+<li><a href="#sec-1">General</a></li>
+<li><a href="#sec-2">Installation</a></li>
+<li><a href="#sec-3">Demonstration</a></li>
+<li><a href="#sec-4">Writing the questions</a>
 <ul>
-<li><a href="#sec-4_1">Simple topics </a></li>
-<li><a href="#sec-4_2">Cloze deletion </a></li>
-<li><a href="#sec-4_3">Clozed text hints </a></li>
-<li><a href="#sec-4_4">Two-sided cards </a></li>
-<li><a href="#sec-4_5">Multi-sided cards </a></li>
-<li><a href="#sec-4_6">Multi-cloze cards </a></li>
-<li><a href="#sec-4_7">User-defined card types </a></li>
-<li><a href="#sec-4_8">Empty cards </a></li>
+<li><a href="#sec-4-1">Simple topics</a></li>
+<li><a href="#sec-4-2">Cloze deletion</a></li>
+<li><a href="#sec-4-3">Clozed text hints</a></li>
+<li><a href="#sec-4-4">Two-sided cards</a></li>
+<li><a href="#sec-4-5">Multi-sided cards</a></li>
+<li><a href="#sec-4-6">Multi-cloze cards</a></li>
+<li><a href="#sec-4-7">User-defined card types</a></li>
+<li><a href="#sec-4-8">Empty cards</a></li>
 </ul>
 </li>
-<li><a href="#sec-5">Running the drill session </a></li>
-<li><a href="#sec-6">Multiple sequential drill sessions </a></li>
-<li><a href="#sec-7">Cram mode </a></li>
-<li><a href="#sec-8">Leeches </a></li>
-<li><a href="#sec-9">Customisation </a>
+<li><a href="#sec-5">Running the drill session</a></li>
+<li><a href="#sec-6">Multiple sequential drill sessions</a></li>
+<li><a href="#sec-7">Cram mode</a></li>
+<li><a href="#sec-8">Leeches</a></li>
+<li><a href="#sec-9">Customisation</a>
 <ul>
-<li><a href="#sec-9_1">Visual appearance of items during drill sessions </a></li>
-<li><a href="#sec-9_2">Duration of drill sessions </a></li>
-<li><a href="#sec-9_3">Saving buffers after drill sessions </a></li>
-<li><a href="#sec-9_4">Sources of items for drill sessions (scope) </a></li>
-<li><a href="#sec-9_5">Definition of old and overdue items </a></li>
-<li><a href="#sec-9_6">Spaced repetition algorithm </a>
+<li><a href="#sec-9-1">Visual appearance of items during drill sessions</a></li>
+<li><a href="#sec-9-2">Duration of drill sessions</a></li>
+<li><a href="#sec-9-3">Saving buffers after drill sessions</a></li>
+<li><a href="#sec-9-4">Sources of items for drill sessions (scope)</a></li>
+<li><a href="#sec-9-5">Definition of old and overdue items</a></li>
+<li><a href="#sec-9-6">Spaced repetition algorithm</a>
 <ul>
-<li><a href="#sec-9_6_1">Choice of algorithm </a></li>
-<li><a href="#sec-9_6_2">Random variation of repetition intervals </a></li>
-<li><a href="#sec-9_6_3">Adjustment for early or late review of items </a></li>
-<li><a href="#sec-9_6_4">Adjusting item difficulty globally </a></li>
+<li><a href="#sec-9-6-1">Choice of algorithm</a></li>
+<li><a href="#sec-9-6-2">Random variation of repetition intervals</a></li>
+<li><a href="#sec-9-6-3">Adjustment for early or late review of items</a></li>
+<li><a href="#sec-9-6-4">Adjusting the first interval (SM5 algorithm only)</a></li>
+<li><a href="#sec-9-6-5">Adjusting item difficulty globally</a></li>
 </ul>
 </li>
-<li><a href="#sec-9_7">Per-file customisation settings </a></li>
+<li><a href="#sec-9-7">Per-file customisation settings</a></li>
 </ul>
 </li>
-<li><a href="#sec-10">Coping with large collections </a></li>
-<li><a href="#sec-11">Sharing, merging and synchronising item collections </a></li>
-<li><a href="#sec-12">Incremental reading </a></li>
-<li><a href="#sec-13">Author </a></li>
+<li><a href="#sec-10">Coping with large collections</a></li>
+<li><a href="#sec-11">Sharing, merging and synchronising item collections</a></li>
+<li><a href="#sec-12">Incremental reading</a></li>
+<li><a href="#sec-13">Author</a></li>
 </ul>
 </div>
 </div>
 
 <div id="outline-container-1" class="outline-2">
-<h2 id="sec-1">General </h2>
+<h2 id="sec-1">General</h2>
 <div class="outline-text-2" id="text-1">
 
 
@@ -183,7 +195,7 @@ version. The repository is at:
 </div>
 
 <div id="outline-container-2" class="outline-2">
-<h2 id="sec-2">Installation </h2>
+<h2 id="sec-2">Installation</h2>
 <div class="outline-text-2" id="text-2">
 
 
@@ -205,13 +217,12 @@ to make sure that Org's "contrib/lisp" directory is in the emacs load-path.
 
 
 
-
 </div>
 
 </div>
 
 <div id="outline-container-3" class="outline-2">
-<h2 id="sec-3">Demonstration </h2>
+<h2 id="sec-3">Demonstration</h2>
 <div class="outline-text-2" id="text-3">
 
 
@@ -230,7 +241,7 @@ drill topics are written.
 </div>
 
 <div id="outline-container-4" class="outline-2">
-<h2 id="sec-4">Writing the questions </h2>
+<h2 id="sec-4">Writing the questions</h2>
 <div class="outline-text-2" id="text-4">
 
 
@@ -261,13 +272,13 @@ This will be adequate for some items, but usually you will want to write items
 where you have more control over what information is hidden from the user for
 recall purposes. For this reason, some other card types are defined, including:
 </p><ul>
-<li><a href="#sec-4_4">Two-sided cards</a>
+<li><a href="#sec-4-4">Two-sided cards</a>
 </li>
-<li><a href="#sec-4_5">Multi-sided cards</a>
+<li><a href="#sec-4-5">Multi-sided cards</a>
 </li>
-<li><a href="#sec-4_6">Multi-cloze cards</a>
+<li><a href="#sec-4-6">Multi-cloze cards</a>
 </li>
-<li><a href="#sec-4_7">User-defined card types</a>
+<li><a href="#sec-4-7">User-defined card types</a>
 </li>
 </ul>
 
@@ -283,9 +294,9 @@ invisible while items are being tested.
 
 </div>
 
-<div id="outline-container-4_1" class="outline-3">
-<h3 id="sec-4_1">Simple topics </h3>
-<div class="outline-text-3" id="text-4_1">
+<div id="outline-container-4-1" class="outline-3">
+<h3 id="sec-4-1">Simple topics</h3>
+<div class="outline-text-3" id="text-4-1">
 
 
 
@@ -306,7 +317,6 @@ Tallinn.
 </pre>
 
 
-
 <p>
 When this item is presented for review, the text beneath the main heading will
 be visible, but the contents of the subheading ("The Answer") will be hidden.
@@ -316,9 +326,9 @@ be visible, but the contents of the subheading ("The Answer") will be hidden.
 
 </div>
 
-<div id="outline-container-4_2" class="outline-3">
-<h3 id="sec-4_2">Cloze deletion </h3>
-<div class="outline-text-3" id="text-4_2">
+<div id="outline-container-4-2" class="outline-3">
+<h3 id="sec-4-2">Cloze deletion</h3>
+<div class="outline-text-3" id="text-4-2">
 
 
 
@@ -340,7 +350,6 @@ The capital city of Estonia is [Tallinn].
 </pre>
 
 
-
 <p>
 During review, the user will see:
 </p>
@@ -360,15 +369,15 @@ When the user presses a key, the text "Tallinn" will become visible.
 
 </div>
 
-<div id="outline-container-4_3" class="outline-3">
-<h3 id="sec-4_3">Clozed text hints </h3>
-<div class="outline-text-3" id="text-4_3">
+<div id="outline-container-4-3" class="outline-3">
+<h3 id="sec-4-3">Clozed text hints</h3>
+<div class="outline-text-3" id="text-4-3">
 
 
 
 <p>
 Clozed text can contain a "hint" about the answer. If the text surrounded
-by single square brackets contains a `|' character (vertical bar), all text
+by single square brackets contains `||' (two vertical bars), all text
 after that character is treated as a hint. During testing, the hint text will
 be visible when the rest of the text is hidden, and invisible when the rest of
 the text is visible.
@@ -379,10 +388,9 @@ Example:
 
 
 
-<pre class="example">Type 1 hypersensitivity reactions are mediated by [immunoglobulin E|molecule]
-and [mast cells|cell type].
+<pre class="example">Type 1 hypersensitivity reactions are mediated by [immunoglobulin E||molecule]
+and [mast cells||cell type].
 </pre>
-
 
 
 <blockquote>
@@ -401,9 +409,9 @@ and <font style="background-color: blue;" color="cyan">
 
 </div>
 
-<div id="outline-container-4_4" class="outline-3">
-<h3 id="sec-4_4"><a name="Two-sided-cards" id="Two-sided-cards"></a>Two-sided cards </h3>
-<div class="outline-text-3" id="text-4_4">
+<div id="outline-container-4-4" class="outline-3">
+<h3 id="sec-4-4"><a name="Two-sided-cards" id="Two-sided-cards"></a>Two-sided cards</h3>
+<div class="outline-text-3" id="text-4-4">
 
 
 <p>
@@ -446,7 +454,6 @@ Who was that woman?
 </pre>
 
 
-
 <p>
 In this example, the user will be shown the main text &ndash; "Translate this word"
 &ndash; and either 'la mujer', <i>or</i> 'the woman', at random. The section 'Example
@@ -458,9 +465,9 @@ not one of the first two 'sides' of the topic.
 
 </div>
 
-<div id="outline-container-4_5" class="outline-3">
-<h3 id="sec-4_5"><a name="Multi-sided-cards" id="Multi-sided-cards"></a>Multi-sided cards </h3>
-<div class="outline-text-3" id="text-4_5">
+<div id="outline-container-4-5" class="outline-3">
+<h3 id="sec-4-5"><a name="Multi-sided-cards" id="Multi-sided-cards"></a>Multi-sided cards</h3>
+<div class="outline-text-3" id="text-4-5">
 
 
 
@@ -490,7 +497,6 @@ the table
 </pre>
 
 
-
 <p>
 The user will be shown the main text and either 'la mesa', <i>or</i> 'the table',
 <i>or</i> a picture of a table.
@@ -500,9 +506,9 @@ The user will be shown the main text and either 'la mesa', <i>or</i> 'the table'
 
 </div>
 
-<div id="outline-container-4_6" class="outline-3">
-<h3 id="sec-4_6"><a name="Multi-cloze-cards" id="Multi-cloze-cards"></a>Multi-cloze cards </h3>
-<div class="outline-text-3" id="text-4_6">
+<div id="outline-container-4-6" class="outline-3">
+<h3 id="sec-4-6"><a name="Multi-cloze-cards" id="Multi-cloze-cards"></a>Multi-cloze cards</h3>
+<div class="outline-text-3" id="text-4-6">
 
 
 
@@ -518,7 +524,6 @@ North Island and has a population of about 400,000.
 </pre>
 
 
-
 <p>
 There is more than one fact in this statement &ndash; you could create a single
 'simple' card with all the facts marked as cloze text, like so:
@@ -527,9 +532,8 @@ There is more than one fact in this statement &ndash; you could create a single
 
 
 <pre class="example">The capital city of [New Zealand] is [Wellington], which is located in
-the [North|North/South] Island and has a population of about [400,000].
+the [North||North/South] Island and has a population of about [400,000].
 </pre>
-
 
 
 <p>
@@ -567,9 +571,8 @@ the North Island.
 
 * Fact
 The capital city of New Zealand is Wellington, which is located in
-the [North|North/South] Island.
+the [North||North/South] Island.
 </pre>
-
 
 
 <p>
@@ -635,19 +638,18 @@ will be hidden.
   :END:
 
 The capital city of [New Zealand] is [Wellington], which is located in
-the [North|North/South] Island and has a population of about [400,000].
+the [North||North/South] Island and has a population of about [400,000].
 </pre>
 
 
 
-
 </div>
 
 </div>
 
-<div id="outline-container-4_7" class="outline-3">
-<h3 id="sec-4_7"><a name="User-defined-card-types" id="User-defined-card-types"></a>User-defined card types </h3>
-<div class="outline-text-3" id="text-4_7">
+<div id="outline-container-4-7" class="outline-3">
+<h3 id="sec-4-7"><a name="User-defined-card-types" id="User-defined-card-types"></a>User-defined card types</h3>
+<div class="outline-text-3" id="text-4-7">
 
 
 
@@ -683,9 +685,9 @@ of all the card types discussed above.
 
 </div>
 
-<div id="outline-container-4_8" class="outline-3">
-<h3 id="sec-4_8">Empty cards </h3>
-<div class="outline-text-3" id="text-4_8">
+<div id="outline-container-4-8" class="outline-3">
+<h3 id="sec-4-8">Empty cards</h3>
+<div class="outline-text-3" id="text-4-8">
 
 
 
@@ -703,8 +705,17 @@ unless they are empty as well.
 </p>
 <p>
 If you have an item with an empty body, but still want it to be included in a
-drill session, put a brief comment ('# &hellip;')  in the item body.
-</p>
+drill session, you can either:
+</p><ol>
+<li>Put a brief comment ('# &hellip;')  in the item body.
+</li>
+<li>Change the entry for its card type in <code>org-drill-card-type-alist</code> so that
+   items of this type will always be tested, even if they have an empty body.
+   See the documentation for <code>org-drill-card-type-alist</code> for details.
+</li>
+</ol>
+
+
 
 </div>
 </div>
@@ -712,16 +723,16 @@ drill session, put a brief comment ('# &hellip;')  in the item body.
 </div>
 
 <div id="outline-container-5" class="outline-2">
-<h2 id="sec-5">Running the drill session </h2>
+<h2 id="sec-5">Running the drill session</h2>
 <div class="outline-text-2" id="text-5">
 
 
 
 <p>
-Start a drill session with <code>M-x org-drill</code>. By default, this includes all
+Start a drill session with <code>M-x org-drill</code>. By default, this tests all
 non-hidden topics in the current buffer. <code>org-drill</code> takes an optional
 argument, SCOPE, which allows it to take drill items from other
-sources. See <a href="#sec-9_4">below</a> for details.
+sources. See <a href="#sec-9-4">below</a> for details.
 </p>
 <p>
 During a drill session, you will be presented with each item, then asked to
@@ -776,7 +787,7 @@ session.
 </div>
 
 <div id="outline-container-6" class="outline-2">
-<h2 id="sec-6">Multiple sequential drill sessions </h2>
+<h2 id="sec-6">Multiple sequential drill sessions</h2>
 <div class="outline-text-2" id="text-6">
 
 
@@ -800,7 +811,7 @@ session without re-scanning (as if you had run <code>org-drill-again</code>).
 </div>
 
 <div id="outline-container-7" class="outline-2">
-<h2 id="sec-7">Cram mode </h2>
+<h2 id="sec-7">Cram mode</h2>
 <div class="outline-text-2" id="text-7">
 
 
@@ -810,10 +821,15 @@ There are some situations, such as before an exam, where you will want to
 revise all of your cards regardless of when they are next due for review.
 </p>
 <p>
-To do this, run a <i>cram session</i> with the <code>org-drill-cram</code> command (<code>M-x org-drill-cram RET</code>). This works the same as a normal drill session, except
+To do this, run a <i>cram session</i> with the <code>org-drill-cram</code> command (<code>M-x org-drill-cram</code>). This works the same as a normal drill session, except
 that all items are considered due for review unless you reviewed them within
 the last 12 hours (you can change the number of hours by customising the
 variable <code>org-drill-cram-hours</code>).
+</p>
+<p>
+Cram sessions are not considered to be part of the normal learning process for
+the tested items. Cramming will not affect when items are next due for
+revision.
 </p>
 
 </div>
@@ -821,7 +837,7 @@ variable <code>org-drill-cram-hours</code>).
 </div>
 
 <div id="outline-container-8" class="outline-2">
-<h2 id="sec-8"><a name="leeches" id="leeches"></a>Leeches </h2>
+<h2 id="sec-8"><a name="leeches" id="leeches"></a>Leeches</h2>
 <div class="outline-text-2" id="text-8">
 
 
@@ -873,7 +889,7 @@ See <a href="http://www.supermemo.com/help/leech.htm">the SuperMemo website</a> 
 </div>
 
 <div id="outline-container-9" class="outline-2">
-<h2 id="sec-9">Customisation </h2>
+<h2 id="sec-9">Customisation</h2>
 <div class="outline-text-2" id="text-9">
 
 
@@ -887,9 +903,9 @@ settings by adding elisp code to your configuration file (<code>.emacs</code>).
 
 </div>
 
-<div id="outline-container-9_1" class="outline-3">
-<h3 id="sec-9_1">Visual appearance of items during drill sessions </h3>
-<div class="outline-text-3" id="text-9_1">
+<div id="outline-container-9-1" class="outline-3">
+<h3 id="sec-9-1">Visual appearance of items during drill sessions</h3>
+<div class="outline-text-3" id="text-9-1">
 
 
 
@@ -902,7 +918,6 @@ buffers, add this to your .emacs:
 
 <pre class="example">(setq org-drill-use-visible-cloze-face-p t)
 </pre>
-
 
 
 <p>
@@ -918,14 +933,13 @@ invisible while each item is being tested, add:
 
 
 
-
 </div>
 
 </div>
 
-<div id="outline-container-9_2" class="outline-3">
-<h3 id="sec-9_2">Duration of drill sessions </h3>
-<div class="outline-text-3" id="text-9_2">
+<div id="outline-container-9-2" class="outline-3">
+<h3 id="sec-9-2">Duration of drill sessions</h3>
+<div class="outline-text-3" id="text-9-2">
 
 
 
@@ -942,7 +956,6 @@ the following settings.
 </pre>
 
 
-
 <p>
 If either of these variables is set to nil, then item count or elapsed time
 will not count as reasons to end the session. If both variables are nil, the
@@ -953,9 +966,9 @@ session will not end until <i>all</i> outstanding items have been reviewed.
 
 </div>
 
-<div id="outline-container-9_3" class="outline-3">
-<h3 id="sec-9_3">Saving buffers after drill sessions </h3>
-<div class="outline-text-3" id="text-9_3">
+<div id="outline-container-9-3" class="outline-3">
+<h3 id="sec-9-3">Saving buffers after drill sessions</h3>
+<div class="outline-text-3" id="text-9-3">
 
 
 
@@ -971,14 +984,13 @@ drill session. If you don't like this behaviour, use the following setting:
 
 
 
-
 </div>
 
 </div>
 
-<div id="outline-container-9_4" class="outline-3">
-<h3 id="sec-9_4"><a name="scope" id="scope"></a>Sources of items for drill sessions (scope) </h3>
-<div class="outline-text-3" id="text-9_4">
+<div id="outline-container-9-4" class="outline-3">
+<h3 id="sec-9-4"><a name="scope" id="scope"></a>Sources of items for drill sessions (scope)</h3>
+<div class="outline-text-3" id="text-9-4">
 
 
 <p>
@@ -1015,13 +1027,15 @@ the variable <code>org-drill-scope</code>. Possible values are:
 </dl>
 
 
-</div>
+
 
 </div>
 
-<div id="outline-container-9_5" class="outline-3">
-<h3 id="sec-9_5">Definition of old and overdue items </h3>
-<div class="outline-text-3" id="text-9_5">
+</div>
+
+<div id="outline-container-9-5" class="outline-3">
+<h3 id="sec-9-5">Definition of old and overdue items</h3>
+<div class="outline-text-3" id="text-9-5">
 
 
 
@@ -1054,7 +1068,6 @@ than 1.0.
 </pre>
 
 
-
 <p>
 After prioritising overdue items, Org-Drill next prioritises <i>young</i>
 items. These are items which were recently learned (or relearned in the case of
@@ -1075,23 +1088,22 @@ of 10 days or less. To change this, use the following:
 
 
 
-
 </div>
 
 </div>
 
-<div id="outline-container-9_6" class="outline-3">
-<h3 id="sec-9_6">Spaced repetition algorithm </h3>
-<div class="outline-text-3" id="text-9_6">
+<div id="outline-container-9-6" class="outline-3">
+<h3 id="sec-9-6">Spaced repetition algorithm</h3>
+<div class="outline-text-3" id="text-9-6">
 
 
 
 
 </div>
 
-<div id="outline-container-9_6_1" class="outline-4">
-<h4 id="sec-9_6_1">Choice of algorithm </h4>
-<div class="outline-text-4" id="text-9_6_1">
+<div id="outline-container-9-6-1" class="outline-4">
+<h4 id="sec-9-6-1">Choice of algorithm</h4>
+<div class="outline-text-4" id="text-9-6-1">
 
 
 
@@ -1117,7 +1129,10 @@ SuperMemo algorithms. These are:
 </dd>
 </dl>
 
-<p>If you want Org-Drill to use the <code>SM2</code> algorithm, put the following in your
+
+
+<p>
+If you want Org-Drill to use the <code>SM2</code> algorithm, put the following in your
 <code>.emacs</code>:
 </p>
 
@@ -1128,14 +1143,13 @@ SuperMemo algorithms. These are:
 
 
 
-
 </div>
 
 </div>
 
-<div id="outline-container-9_6_2" class="outline-4">
-<h4 id="sec-9_6_2">Random variation of repetition intervals </h4>
-<div class="outline-text-4" id="text-9_6_2">
+<div id="outline-container-9-6-2" class="outline-4">
+<h4 id="sec-9-6-2">Random variation of repetition intervals</h4>
+<div class="outline-text-4" id="text-9-6-2">
 
 
 
@@ -1144,7 +1158,7 @@ The intervals generated by the SM2 and SM5 algorithms are pretty
 deterministic. If you tend to add items in large, infrequent batches, the lack
 of variation in interval scheduling can lead to the problem of "lumpiness" --
 one day a large batch of items are due for review, the next there is almost
-nothing, a few days later another big pile of items is due.
+nothing, a few days later another big pile of items is due, and so on.
 </p>
 <p>
 This problem can be ameliorated by adding some random "noise" to the interval
@@ -1164,14 +1178,13 @@ your <code>.emacs</code>:
 
 
 
-
 </div>
 
 </div>
 
-<div id="outline-container-9_6_3" class="outline-4">
-<h4 id="sec-9_6_3">Adjustment for early or late review of items </h4>
-<div class="outline-text-4" id="text-9_6_3">
+<div id="outline-container-9-6-3" class="outline-4">
+<h4 id="sec-9-6-3">Adjustment for early or late review of items</h4>
+<div class="outline-text-4" id="text-9-6-3">
 
 
 
@@ -1187,7 +1200,6 @@ is also presented on the SuperMemo website. It can be enabled with:
 </pre>
 
 
-
 <p>
 This will affect both early and late repetitions if the Simple8 algorithm is
 used. For the SM5 algorithm it will affect early repetitions only. It has no
@@ -1198,9 +1210,35 @@ effect on the SM2 algorithm.
 
 </div>
 
-<div id="outline-container-9_6_4" class="outline-4">
-<h4 id="sec-9_6_4">Adjusting item difficulty globally </h4>
-<div class="outline-text-4" id="text-9_6_4">
+<div id="outline-container-9-6-4" class="outline-4">
+<h4 id="sec-9-6-4">Adjusting the first interval (SM5 algorithm only)</h4>
+<div class="outline-text-4" id="text-9-6-4">
+
+
+
+<p>
+In the SM5 algorithm, the initial interval after the first successful
+presentation of an item is <i>always</i> 4 days. If you wish to change this for some
+reason, you can do so with:
+</p>
+
+
+
+<pre class="example">(setq org-drill-sm5-initial-interval 5.0)
+</pre>
+
+
+<p>
+note that this will have no effect if you are not using the SM5 algorithm.
+</p>
+
+</div>
+
+</div>
+
+<div id="outline-container-9-6-5" class="outline-4">
+<h4 id="sec-9-6-5">Adjusting item difficulty globally</h4>
+<div class="outline-text-4" id="text-9-6-5">
 
 
 
@@ -1247,15 +1285,14 @@ To alter the learn fraction, put the following in your .emacs:
 
 
 
-
 </div>
 </div>
 
 </div>
 
-<div id="outline-container-9_7" class="outline-3">
-<h3 id="sec-9_7"><a name="per-file-settings" id="per-file-settings"></a>Per-file customisation settings </h3>
-<div class="outline-text-3" id="text-9_7">
+<div id="outline-container-9-7" class="outline-3">
+<h3 id="sec-9-7"><a name="per-file-settings" id="per-file-settings"></a>Per-file customisation settings</h3>
+<div class="outline-text-3" id="text-9-7">
 
 
 <p>
@@ -1274,7 +1311,6 @@ that file:
 </pre>
 
 
-
 <p>
 You can achieve the same effect by including the settings in the 'mode line'
 (this must be the <b>first line</b> in the file), like so:
@@ -1286,10 +1322,8 @@ You can achieve the same effect by including the settings in the 'mode line'
 </pre>
 
 
-
 <p>
-In either case you will need to save, close and re-open the file for the
-changes to take effect.
+In either case you will need to reload the file for the changes to take effect.
 </p>
 
 </div>
@@ -1298,7 +1332,7 @@ changes to take effect.
 </div>
 
 <div id="outline-container-10" class="outline-2">
-<h2 id="sec-10">Coping with large collections </h2>
+<h2 id="sec-10">Coping with large collections</h2>
 <div class="outline-text-2" id="text-10">
 
 
@@ -1309,23 +1343,25 @@ large. The file will be slow to load, and Emacs may have trouble
 syntax-highlighting the file contents correctly.
 </p>
 <p>
-The easiest steps to solve this problem are:
+The easiest way to solve this problem is:
 </p><ol>
 <li>Move your file into its own dedicated directory.
 </li>
 <li>Divide the file into two or more smaller files.
 </li>
 <li>Within each file, set <code>org-drill-scope</code> to 'directory'. See
-   <a href="#sec-9_7">per-file settings</a> above for instructions about how to do this.
+   <a href="#sec-9-7">per-file settings</a> above for instructions about how to do this.
 </li>
 </ol>
+
+
 
 </div>
 
 </div>
 
 <div id="outline-container-11" class="outline-2">
-<h2 id="sec-11">Sharing, merging and synchronising item collections </h2>
+<h2 id="sec-11">Sharing, merging and synchronising item collections</h2>
 <div class="outline-text-2" id="text-11">
 
 
@@ -1389,7 +1425,7 @@ procedure.
 </div>
 
 <div id="outline-container-12" class="outline-2">
-<h2 id="sec-12">Incremental reading </h2>
+<h2 id="sec-12">Incremental reading</h2>
 <div class="outline-text-2" id="text-12">
 
 
@@ -1444,7 +1480,6 @@ captured facts.
         ;; ...other capture templates...
     ))
 </pre>
-
 
 
 <p>
@@ -1525,7 +1560,6 @@ Calmette-Guérin vaccine.
 </pre>
 
 
-
 <p>
 You need to edit this fact so it makes sense independent of its context, as
 that is how it will be presented to you in future. The easiest way to turn the
@@ -1550,20 +1584,21 @@ or give it different tags or properties, for example.
 </div>
 
 <div id="outline-container-13" class="outline-2">
-<h2 id="sec-13">Author </h2>
+<h2 id="sec-13">Author</h2>
 <div class="outline-text-2" id="text-13">
 
 
 <p>
 Org-Drill is written by Paul Sexton.
-</p>
+</p></div>
 </div>
 </div>
+
 <div id="postamble">
-<p class="date">Date: 2011-05-21 00:08:14 NZST</p>
-<p class="creator">Org version 7.5 with Emacs version 23</p>
+<p class="date">Date: 2012-09-05T10:41+1200</p>
+<p class="creator">Org version N/A with Emacs version 24</p>
 <a href="http://validator.w3.org/check?uri=referer">Validate XHTML 1.0</a>
-</div>
+
 </div>
 </body>
 </html>
