@@ -226,6 +226,9 @@ the hidden cloze during a test.")
     ("conjugate"
      org-drill-present-verb-conjugation
      org-drill-show-answer-verb-conjugation)
+    ("decline_noun"
+     org-drill-present-noun-declension
+     org-drill-show-answer-noun-declension)
     ("spanish_verb" org-drill-present-spanish-verb)
     ("translate_number" org-drill-present-translate-number))
   "Alist associating card types with presentation functions. Each
@@ -1684,6 +1687,7 @@ Note: does not actually alter the item."
     (org-drill-unhide-clozed-text)
     (ignore-errors
       (org-display-inline-images t))
+    (org-cycle-hide-drawers 'all)
     (with-hidden-cloze-hints
      (funcall reschedule-fn)))))
 
@@ -2927,6 +2931,101 @@ returns its return value."
                (mood
                 (format "%s mood" mood))))
              infinitive translation)
+     (funcall reschedule-fn))))
+
+
+;;; `decline_noun' card type ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defvar org-drill-noun-gender-alist
+  '(("masculine" "dodgerblue")
+    ("masc" "dodgerblue")
+    ("male" "dodgerblue")
+    ("m" "dodgerblue")
+    ("feminine" "orchid")
+    ("fem" "orchid")
+    ("female" "orchid")
+    ("f" "orchid")
+    ("neuter" "green")
+    ("neutral" "green")
+    ("neut" "green")
+    ("n" "green")
+    ))
+
+
+(defun org-drill-get-noun-info ()
+  "Auxiliary function used by `org-drill-present-noun-declension' and
+`org-drill-show-answer-noun-declension'."
+  (let ((noun (org-entry-get (point) "NOUN" t))
+        (noun-hint (org-entry-get (point) "NOUN_HINT" t))
+        (noun-root (org-entry-get (point) "NOUN_ROOT" t))
+        (noun-gender (org-entry-get (point) "NOUN_GENDER" t))
+        (translation (org-entry-get (point) "NOUN_TRANSLATION" t))
+        (highlight-face nil))
+    (unless (and noun translation)
+      (error "Missing information for `decline_noun' card (%s, %s, %s, %s) at %s"
+             noun translation noun-hint noun-root (point)))
+    (setq noun-root (if noun-root (car (read-from-string noun-root)))
+          noun (car (read-from-string noun))
+          noun-gender (downcase (car (read-from-string noun-gender)))
+          noun-hint (if noun-hint (car (read-from-string noun-hint)))
+          translation (car (read-from-string translation)))
+    (setq highlight-face
+          (list :foreground
+                (or (second (assoc-string noun-gender
+                                          org-drill-noun-gender-alist t))
+                    "red")))
+    (setq noun (propertize noun 'face highlight-face))
+    (setq translation (propertize translation 'face highlight-face))
+    (list noun noun-root noun-gender noun-hint translation)))
+
+
+(defun org-drill-present-noun-declension ()
+  "Present a drill entry whose card type is 'decline_noun'."
+  (destructuring-bind (noun noun-root noun-gender noun-hint translation)
+      (org-drill-get-noun-info)
+    (let* ((props (org-entry-properties (point)))
+           (definite
+             (cond
+              ((assoc "DECLINE_DEFINITE" props)
+               (propertize (if (org-entry-get (point) "DECLINE_DEFINITE")
+                               "definite" "indefinite")
+                           'face 'warning))
+              (t nil)))
+           (plural
+            (cond
+             ((assoc "DECLINE_PLURAL" props)
+              (propertize (if (org-entry-get (point) "DECLINE_PLURAL")
+                              "plural" "singular")
+                          'face 'warning))
+             (t nil))))
+      (org-drill-present-card-using-text
+       (cond
+        ((zerop (random* 2))
+         (format "\nTranslate the noun\n\n%s (%s)\n\nand list its declensions%s.\n\n"
+                 noun noun-gender
+                 (if (or plural definite)
+                     (format " for the %s %s form" definite plural)
+                   "")))
+        (t
+         (format "\nGive the noun that means\n\n%s %s\n
+and list its declensions%s.\n\n"
+                 translation
+                 (if noun-hint (format "  [HINT: %s]" noun-hint) "")
+                 (if (or plural definite)
+                     (format " for the %s %s form" definite plural)
+                   ""))))))))
+
+
+(defun org-drill-show-answer-noun-declension (reschedule-fn)
+  "Show the answer for a drill item whose card type is 'decline_noun'.
+RESCHEDULE-FN must be a function that calls `org-drill-reschedule' and
+returns its return value."
+  (destructuring-bind (noun noun-root noun-gender noun-hint translation)
+      (org-drill-get-noun-info)
+    (with-replaced-entry-heading
+     (format "Declensions of %s (%s) ==> %s\n\n"
+             noun noun-gender translation)
      (funcall reschedule-fn))))
 
 
