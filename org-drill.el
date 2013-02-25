@@ -2931,6 +2931,7 @@ returns its return value."
                (mood
                 (format "%s mood" mood))))
              infinitive translation)
+     (org-cycle-hide-drawers 'all)
      (funcall reschedule-fn))))
 
 
@@ -3026,6 +3027,7 @@ returns its return value."
     (with-replaced-entry-heading
      (format "Declensions of %s (%s) ==> %s\n\n"
              noun noun-gender translation)
+     (org-cycle-hide-drawers 'all)
      (funcall reschedule-fn))))
 
 
