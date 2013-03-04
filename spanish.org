@@ -180,7 +180,7 @@ card type. Which tense to test is specified by the =VERB_TENSE= property in
 each item, and the information about the verb is retrieved from the parent's
 =VERB_INFINITIVE=, =VERB_TRANSLATION= and =VERB_INFINITIVE_HINT= properties.
 
-Some of the conjugation items are empty -- this allows the user to past in
+Some of the conjugation items are empty -- this allows the user to paste in
 conjugations as they are learned. They will automatically be excluded from
 drill sessions as long as their bodies remain empty.
 
@@ -358,4 +358,3 @@ The meaning of the item's properties is as follows:
 
 # This comment is included so that the item body is non-empty. Items with
 # empty bodies are skipped during drill sessions.
-

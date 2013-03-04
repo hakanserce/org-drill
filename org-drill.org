@@ -329,7 +329,7 @@ the harder direction more often.
 
 So, for the above example, we can actually use the original 'bad' simple card,
 but change its card type to 'hide1cloze'. Each time the card is presented for
-review, one of 'New Zealand', 'Wellington', 'the South Island' or '400,000'
+review, one of 'New Zealand', 'Wellington', 'the North Island' or '400,000'
 will be hidden.
 
 #+BEGIN_EXAMPLE

@@ -26,6 +26,8 @@
 
 (eval-when-compile (require 'cl))
 (eval-when-compile (require 'hi-lock))
+(require 'cl)
+(require 'hi-lock)
 (require 'org)
 (require 'org-id)
 (require 'org-learn)
@@ -285,6 +287,14 @@ directory            All files with the extension '.org' in the same
                  list))
 
 
+(defcustom org-drill-match
+  nil
+  "If non-nil, a string specifying a tags/property/TODO query. During
+drill sessions, only items that match this query will be considered."
+  :group 'org-drill
+  :type '(choice (const nil) string))
+
+
 (defcustom org-drill-save-buffers-after-drill-sessions-p
   t
   "If non-nil, prompt to save all modified buffers after a drill session
@@ -504,6 +514,8 @@ for review unless they were already reviewed in the recent past?")
 (put 'org-drill-overdue-interval-factor 'safe-local-variable 'floatp)
 (put 'org-drill-scope 'safe-local-variable
      '(lambda (val) (or (symbolp val) (listp val))))
+(put 'org-drill-match 'safe-local-variable
+     '(lambda (val) (or (stringp val) (null val))))
 (put 'org-drill-save-buffers-after-drill-sessions-p 'safe-local-variable 'booleanp)
 (put 'org-drill-cloze-text-weight 'safe-local-variable
      '(lambda (val) (or (null val) (integerp val))))
@@ -568,11 +580,16 @@ CMD is bound, or nil if it is not bound to a key."
    time))
 
 
-(defun org-map-drill-entries (func &optional scope &rest skip)
+(defun org-map-drill-entries (func &optional scope drill-match &rest skip)
   "Like `org-map-entries', but only drill entries are processed."
-  (let ((org-drill-scope (or scope org-drill-scope)))
+  (let ((org-drill-scope (or scope org-drill-scope))
+        (org-drill-match (or drill-match org-drill-match)))
     (apply 'org-map-entries func
-           (concat "+" org-drill-question-tag)
+           (concat "+" org-drill-question-tag
+                   (if (and (stringp org-drill-match)
+                            (not (member '(?+ ?- ?|) (elt org-drill-match 0))))
+                       "+" "")
+                   (or org-drill-match ""))
            (case org-drill-scope
              (file nil)
              (file-no-restriction 'file)
@@ -808,10 +825,10 @@ from the entry at point."
   (let ((a 0.047)
         (b 0.092)
         (p (- (random* 1.0) 0.5)))
-    (flet ((sign (n)
-                 (cond ((zerop n) 0)
-                       ((plusp n) 1)
-                       (t -1))))
+    (cl-flet ((sign (n)
+                    (cond ((zerop n) 0)
+                          ((plusp n) 1)
+                          (t -1))))
       (/ (+ 100 (* (* (/ -1 b) (log (- 1 (* (/ b a ) (abs p)))))
                    (sign p)))
          100.0))))
@@ -2053,7 +2070,7 @@ See `org-drill' for more details."
   ;;  (error "Point is not inside a drill entry"))
   ;;(unless (org-at-heading-p)
   ;;  (org-back-to-heading))
-  (let ((card-type (org-entry-get (point) "DRILL_CARD_TYPE"))
+  (let ((card-type (org-entry-get (point) "DRILL_CARD_TYPE" t))
         (answer-fn 'org-drill-present-default-answer)
         (present-empty-cards nil)
         (cont nil)
@@ -2425,7 +2442,7 @@ one of the following values:
                            sym1)))))
 
 
-(defun org-drill (&optional scope resume-p)
+(defun org-drill (&optional scope drill-match resume-p)
   "Begin an interactive 'drill session'. The user is asked to
 review a series of topics (headers). Each topic is initially
 presented as a 'question', often with part of the topic content
@@ -2452,6 +2469,10 @@ Org-drill proceeds by:
 SCOPE determines the scope in which to search for
 questions.  It accepts the same values as `org-drill-scope',
 which see.
+
+DRILL-MATCH, if supplied, is a string specifying a tags/property/
+todo query. Only items matching the query will be considered.
+It accepts the same values as `org-drill-match', which see.
 
 If RESUME-P is non-nil, resume a suspended drill session rather
 than starting a new one."
@@ -2525,7 +2546,7 @@ than starting a new one."
                          (:old
                           (push (point-marker) *org-drill-old-mature-entries*))
                          )))))
-                 scope)
+                 scope drill-match)
                 (org-drill-order-overdue-entries overdue-data)
                 (setq *org-drill-overdue-entry-count*
                       (length *org-drill-overdue-entries*))))
@@ -2572,14 +2593,14 @@ than starting a new one."
                            org-drill-optimal-factor-matrix))
 
 
-(defun org-drill-cram (&optional scope)
+(defun org-drill-cram (&optional scope drill-match)
   "Run an interactive drill session in 'cram mode'. In cram mode,
 all drill items are considered to be due for review, unless they
 have been reviewed within the last `org-drill-cram-hours'
 hours."
   (interactive)
   (setq *org-drill-cram-mode* t)
-  (org-drill scope))
+  (org-drill scope drill-match))
 
 
 (defun org-drill-tree ()
@@ -2596,7 +2617,7 @@ files in the same directory as the current file."
   (org-drill 'directory))
 
 
-(defun org-drill-again (&optional scope)
+(defun org-drill-again (&optional scope drill-match)
   "Run a new drill session, but try to use leftover due items that
 were not reviewed during the last session, rather than scanning for
 unreviewed items. If there are no leftover items in memory, a full
@@ -2611,9 +2632,9 @@ scan will be performed."
     (setq *org-drill-start-time* (float-time (current-time))
           *org-drill-done-entries* nil
           *org-drill-current-item* nil)
-    (org-drill scope t))
+    (org-drill scope drill-match t))
    (t
-    (org-drill scope))))
+    (org-drill scope drill-match))))
 
 
 
@@ -2623,7 +2644,7 @@ exiting them with the `edit' or `quit' options."
   (interactive)
   (cond
    ((org-drill-entries-pending-p)
-    (org-drill nil t))
+    (org-drill nil nil t))
    ((and (plusp (org-drill-pending-entry-count))
          ;; Current drill session is finished, but there are still
          ;; more items which need to be reviewed.
@@ -2688,18 +2709,18 @@ the tag 'imported'."
     (save-excursion
       (let ((src (current-buffer))
             (m nil))
-        (flet ((paste-tree-here (&optional level)
-                                (org-paste-subtree level)
-                                (org-drill-strip-entry-data)
-                                (org-toggle-tag "imported" 'on)
-                                (org-map-drill-entries
-                                 (lambda ()
-                                   (let ((id (org-id-get)))
-                                     (org-drill-strip-entry-data)
-                                     (unless (gethash id *org-drill-dest-id-table*)
-                                       (puthash id (point-marker)
-                                                *org-drill-dest-id-table*))))
-                                 'tree)))
+        (cl-flet ((paste-tree-here (&optional level)
+                                   (org-paste-subtree level)
+                                   (org-drill-strip-entry-data)
+                                   (org-toggle-tag "imported" 'on)
+                                   (org-map-drill-entries
+                                    (lambda ()
+                                      (let ((id (org-id-get)))
+                                        (org-drill-strip-entry-data)
+                                        (unless (gethash id *org-drill-dest-id-table*)
+                                          (puthash id (point-marker)
+                                                   *org-drill-dest-id-table*))))
+                                    'tree)))
           (unless path
             (setq path (org-get-outline-path)))
           (org-copy-subtree)
@@ -2889,15 +2910,15 @@ the name of the tense.")
 
 (defun org-drill-present-verb-conjugation ()
   "Present a drill entry whose card type is 'conjugate'."
-  (flet ((tense-and-mood-to-string
-          (tense mood)
-          (cond
-           ((and tense mood)
-            (format "%s tense, %s mood" tense mood))
-           (tense
-            (format "%s tense" tense))
-           (mood
-            (format "%s mood" mood)))))
+  (cl-flet ((tense-and-mood-to-string
+             (tense mood)
+             (cond
+              ((and tense mood)
+               (format "%s tense, %s mood" tense mood))
+              (tense
+               (format "%s tense" tense))
+              (mood
+               (format "%s mood" mood)))))
     (destructuring-bind (infinitive inf-hint translation tense mood)
         (org-drill-get-verb-conjugation-info)
       (org-drill-present-card-using-text
