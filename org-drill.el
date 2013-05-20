@@ -26,7 +26,7 @@
 
 (eval-when-compile (require 'cl))
 (eval-when-compile (require 'hi-lock))
-(require 'cl)
+(require 'cl-lib)
 (require 'hi-lock)
 (require 'org)
 (require 'org-id)
@@ -1208,7 +1208,7 @@ item will be scheduled exactly this many days into the future."
 
         (cond
          ((= 0 days-ahead)
-          (org-schedule t))
+          (org-schedule '(4)))
          ((minusp days-ahead)
           (org-schedule nil (current-time)))
          (t
