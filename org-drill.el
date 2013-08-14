@@ -2,7 +2,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.3.7
+;;; Version: 2.3.8
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -577,6 +577,12 @@ CMD is bound, or nil if it is not bound to a key."
 (defun time-to-inactive-org-timestamp (time)
   (format-time-string
    (concat "[" (substring (cdr org-time-stamp-formats) 1 -1) "]")
+   time))
+
+
+(defun time-to-active-org-timestamp (time)
+  (format-time-string
+   (concat "<" (substring (cdr org-time-stamp-formats) 1 -1) ">")
    time))
 
 
@@ -1328,7 +1334,7 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
                 (sit-for 0.5)))))
           (org-set-property "DRILL_LAST_QUALITY" (format "%d" quality))
           (org-set-property "DRILL_LAST_REVIEWED"
-                            (time-to-inactive-org-timestamp (current-time))))
+                            (time-to-active-org-timestamp (current-time))))
         quality))
      ((= ch ?e)
       'edit)
@@ -1480,6 +1486,7 @@ visual overlay, or with the string TEXT if it is supplied."
   (let ((ovl (make-overlay beg end)))
     (overlay-put ovl 'category
                  'org-drill-hidden-text-overlay)
+    (overlay-put ovl 'priority 9999)
     (when (stringp text)
       (overlay-put ovl 'invisible nil)
       (overlay-put ovl 'face 'default)
@@ -1527,6 +1534,7 @@ visual overlay, or with the string TEXT if it is supplied."
                                       (match-string 0))))
     (overlay-put ovl 'category
                  'org-drill-cloze-overlay-defaults)
+    (overlay-put ovl 'priority 9999)
     (when (and hint-sep-pos
                (> hint-sep-pos 1))
       (let ((hint (substring-no-properties
@@ -1591,6 +1599,7 @@ Note: does not actually alter the item."
                              (save-excursion
                                (outline-next-heading)
                                (point)))))
+      (overlay-put ovl 'priority 9999)
       (overlay-put ovl 'category
                    'org-drill-replaced-text-overlay)
       (overlay-put ovl 'display text)))))
@@ -1619,6 +1628,7 @@ Note: does not actually alter the item."
                               (if (= i (1- (length replacements)))
                                   p-max
                                 (+ p-min (* 2 i) 1))))
+      (overlay-put ovl 'priority 9999)
       (overlay-put ovl 'category
                    'org-drill-replaced-text-overlay)
       (overlay-put ovl 'display (nth i replacements)))))
@@ -1684,6 +1694,7 @@ Note: does not actually alter the item."
    (with-hidden-cloze-hints
     (with-hidden-cloze-text
      (org-drill-hide-all-subheadings-except nil)
+     (org-preview-latex-fragment)       ; overlay all LaTeX fragments with images
      (ignore-errors
        (org-display-inline-images t))
      (org-cycle-hide-drawers 'all)
@@ -1702,6 +1713,7 @@ Note: does not actually alter the item."
    (t
     (org-drill-hide-subheadings-if 'org-drill-entry-p)
     (org-drill-unhide-clozed-text)
+    (org-preview-latex-fragment)
     (ignore-errors
       (org-display-inline-images t))
     (org-cycle-hide-drawers 'all)
@@ -1719,6 +1731,7 @@ Note: does not actually alter the item."
            (goto-char (nth (random* (min 2 (length drill-sections)))
                            drill-sections))
            (org-show-subtree)))
+       (org-preview-latex-fragment)
        (ignore-errors
          (org-display-inline-images t))
        (org-cycle-hide-drawers 'all)
@@ -1736,6 +1749,7 @@ Note: does not actually alter the item."
          (save-excursion
            (goto-char (nth (random* (length drill-sections)) drill-sections))
            (org-show-subtree)))
+       (org-preview-latex-fragment)
        (ignore-errors
          (org-display-inline-images t))
        (org-cycle-hide-drawers 'all)
@@ -1815,6 +1829,7 @@ items if FORCE-SHOW-FIRST or FORCE-SHOW-LAST is non-nil)."
       ;;  while (org-pos-in-regexp (match-beginning 0)
       ;;                           org-bracket-link-regexp 1))
       ;; (org-drill-hide-matched-cloze-text)))))
+      (org-preview-latex-fragment)
       (ignore-errors
         (org-display-inline-images t))
       (org-cycle-hide-drawers 'all)
@@ -1863,6 +1878,7 @@ the second to last, etc."
               (incf cnt)
               (if (= cnt to-hide)
                   (org-drill-hide-matched-cloze-text)))))))
+      (org-preview-latex-fragment)
       (ignore-errors
         (org-display-inline-images t))
       (org-cycle-hide-drawers 'all)
@@ -1985,40 +2001,6 @@ piece which is chosen at random."
   "Similar to `org-drill-present-multicloze-show1', but reveals two
 pieces rather than one."
   (org-drill-present-multicloze-hide-n -2))
-
-
-;; (defun org-drill-present-multicloze-show1 ()
-;;   "Similar to `org-drill-present-multicloze-hide1', but hides all
-;; the pieces of text that are marked for cloze deletion, except for one
-;; piece which is chosen at random."
-;;   (with-hidden-comments
-;;    (with-hidden-cloze-hints
-;;     (let ((item-end nil)
-;;           (match-count 0)
-;;           (body-start (or (cdr (org-get-property-block))
-;;                           (point))))
-;;       (org-drill-hide-all-subheadings-except nil)
-;;       (save-excursion
-;;         (outline-next-heading)
-;;         (setq item-end (point)))
-;;       (save-excursion
-;;         (goto-char body-start)
-;;         (while (re-search-forward org-drill-cloze-regexp item-end t)
-;;           (incf match-count)))
-;;       (when (plusp match-count)
-;;         (let ((match-to-hide (random* match-count)))
-;;           (save-excursion
-;;             (goto-char body-start)
-;;             (dotimes (n match-count)
-;;               (re-search-forward org-drill-cloze-regexp
-;;                                  item-end t)
-;;               (unless (= n match-to-hide)
-;;                 (org-drill-hide-matched-cloze-text))))))
-;;       (org-display-inline-images t)
-;;       (org-cycle-hide-drawers 'all)
-;;       (prog1 (org-drill-presentation-prompt)
-;;         (org-drill-hide-subheadings-if 'org-drill-entry-p)
-;;         (org-drill-unhide-clozed-text))))))
 
 
 (defun org-drill-present-card-using-text (question &optional answer)
@@ -2655,6 +2637,14 @@ need reviewing. Start a new drill session? "
     (org-drill-again))
    (t
     (message "You have finished the drill session."))))
+
+
+(defun org-drill-relearn-item ()
+  "Make the current item due for revision, and set its last interval to 0.
+Makes the item behave as if it has been failed, without actually recording a
+failure. This command can be used to 'reset' repetitions for an item."
+  (interactive)
+  (org-drill-smart-reschedule 4 0))
 
 
 (defun org-drill-strip-entry-data ()
