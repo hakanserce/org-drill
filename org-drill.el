@@ -1520,10 +1520,12 @@ visual overlay, or with the string TEXT if it is supplied."
   (save-excursion
     (while (re-search-forward org-drill-cloze-regexp nil t)
       ;; Don't hide org links, partly because they might contain inline
-      ;; images which we want to keep visible
+      ;; images which we want to keep visible.
+      ;; And don't hide LaTeX math fragments.
       (unless (save-match-data
-                (org-pos-in-regexp (match-beginning 0)
-                                   org-bracket-link-regexp 1))
+                (or (org-pos-in-regexp (match-beginning 0)
+                                       org-bracket-link-regexp 1)
+                    (org-inside-LaTeX-fragment-p)))
         (org-drill-hide-matched-cloze-text)))))
 
 
@@ -1791,7 +1793,8 @@ items if FORCE-SHOW-FIRST or FORCE-SHOW-LAST is non-nil)."
           (let ((in-regexp? (save-match-data
                               (org-pos-in-regexp (match-beginning 0)
                                                  org-bracket-link-regexp 1))))
-            (unless in-regexp?
+            (unless (or in-regexp?
+                        (org-inside-LaTeX-fragment-p))
               (incf match-count)))))
       (if (minusp number-to-hide)
           (setq number-to-hide (+ match-count number-to-hide)))
@@ -1818,8 +1821,9 @@ items if FORCE-SHOW-FIRST or FORCE-SHOW-LAST is non-nil)."
             (setq cnt 0)
             (while (re-search-forward org-drill-cloze-regexp item-end t)
               (unless (save-match-data
-                        (org-pos-in-regexp (match-beginning 0)
-                                           org-bracket-link-regexp 1))
+                        (or (org-pos-in-regexp (match-beginning 0)
+                                               org-bracket-link-regexp 1)
+                            (org-inside-LaTeX-fragment-p)))
                 (incf cnt)
                 (if (memq cnt match-nums)
                     (org-drill-hide-matched-cloze-text)))))))
@@ -1859,7 +1863,8 @@ the second to last, etc."
           (let ((in-regexp? (save-match-data
                               (org-pos-in-regexp (match-beginning 0)
                                                  org-bracket-link-regexp 1))))
-            (unless in-regexp?
+            (unless (or in-regexp?
+                        (org-inside-LaTeX-fragment-p))
               (incf match-count)))))
       (if (minusp to-hide)
           (setq to-hide (+ 1 to-hide match-count)))
@@ -1873,8 +1878,12 @@ the second to last, etc."
           (setq cnt 0)
           (while (re-search-forward org-drill-cloze-regexp item-end t)
             (unless (save-match-data
-                      (org-pos-in-regexp (match-beginning 0)
-                                         org-bracket-link-regexp 1))
+                      ;; Don't consider this a cloze region if it is part of an
+                      ;; org link, or if it occurs inside a LaTeX math
+                      ;; fragment
+                      (or (org-pos-in-regexp (match-beginning 0)
+                                         org-bracket-link-regexp 1)
+                          (org-inside-LaTeX-fragment-p)))
               (incf cnt)
               (if (= cnt to-hide)
                   (org-drill-hide-matched-cloze-text)))))))
@@ -2650,7 +2659,7 @@ failure. This command can be used to 'reset' repetitions for an item."
 (defun org-drill-strip-entry-data ()
   (dolist (prop org-drill-scheduling-properties)
     (org-delete-property prop))
-  (org-schedule t))
+  (org-schedule '(4)))
 
 
 (defun org-drill-strip-all-data (&optional scope)
@@ -2668,7 +2677,7 @@ values as `org-drill-scope'."
       ;; `org-delete-property-globally', which is faster.
       (dolist (prop org-drill-scheduling-properties)
         (org-delete-property-globally prop))
-      (org-map-drill-entries (lambda () (org-schedule t)) scope))
+      (org-map-drill-entries (lambda () (org-schedule '(4))) scope))
      (t
       (org-map-drill-entries 'org-drill-strip-entry-data scope)))
     (message "Done.")))
