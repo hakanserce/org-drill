@@ -2,7 +2,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.3.8
+;;; Version: 2.4.0
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -175,9 +175,23 @@ during a drill session."
   :group 'org-drill
   :type 'color)
 
+(defcustom org-drill-left-cloze-delimiter
+  "["
+  "String used within org buffers to delimit cloze deletions."
+  :group 'org-drill
+  :type 'string)
+
+(defcustom org-drill-right-cloze-delimiter
+  "]"
+  "String used within org buffers to delimit cloze deletions."
+  :group 'org-drill
+  :type 'string)
+
 
 (setplist 'org-drill-cloze-overlay-defaults
-          '(display "[...]"
+          `(display ,(format "%s...%s"
+                             org-drill-left-cloze-delimiter
+                             org-drill-right-cloze-delimiter)
                     face org-drill-hidden-cloze-face
                     window t))
 
@@ -195,19 +209,28 @@ during a drill session."
 rest of the expression after the string is a `hint', to be displayed instead of
 the hidden cloze during a test.")
 
-
-(defvar org-drill-cloze-regexp
-  (concat "\\(\\[[[:cntrl:][:graph:][:space:]]+?\\)\\(\\|"
+(defun org-drill--compute-cloze-regexp ()
+  (concat "\\("
+          (regexp-quote org-drill-left-cloze-delimiter)
+          "[[:cntrl:][:graph:][:space:]]+?\\)\\(\\|"
           (regexp-quote org-drill-hint-separator)
-          ".+?\\)\\(\\]\\)"))
+          ".+?\\)\\("
+          (regexp-quote org-drill-right-cloze-delimiter)
+          "\\)"))
+
+(defun org-drill--compute-cloze-keywords ()
+  (list (list (org-drill--compute-cloze-regexp)
+              (copy-list '(1 'org-drill-visible-cloze-face nil))
+              (copy-list '(2 'org-drill-visible-cloze-hint-face t))
+              (copy-list '(3 'org-drill-visible-cloze-face nil))
+              )))
+
+(defvar-local org-drill-cloze-regexp
+  (org-drill--compute-cloze-regexp))
 
 
-(defvar org-drill-cloze-keywords
-  `((,org-drill-cloze-regexp
-     (1 'org-drill-visible-cloze-face nil)
-     (2 'org-drill-visible-cloze-hint-face t)
-     (3 'org-drill-visible-cloze-face nil)
-     )))
+(defvar-local org-drill-cloze-keywords
+  (org-drill--compute-cloze-keywords))
 
 
 (defcustom org-drill-card-type-alist
@@ -519,6 +542,8 @@ for review unless they were already reviewed in the recent past?")
 (put 'org-drill-save-buffers-after-drill-sessions-p 'safe-local-variable 'booleanp)
 (put 'org-drill-cloze-text-weight 'safe-local-variable
      '(lambda (val) (or (null val) (integerp val))))
+(put 'org-drill-left-cloze-delimiter 'safe-local-variable 'stringp)
+(put 'org-drill-right-cloze-delimiter 'safe-local-variable 'stringp)
 
 
 ;;;; Utilities ================================================================
@@ -2685,12 +2710,20 @@ values as `org-drill-scope'."
 
 
 (defun org-drill-add-cloze-fontification ()
-  (when org-drill-use-visible-cloze-face-p
-    (font-lock-add-keywords 'org-mode
-                            org-drill-cloze-keywords
-                            nil)))
+  (when (eql major-mode 'org-mode)
+    ;; Compute local versions of the regexp for cloze deletions, in case
+    ;; the left and right delimiters are redefined locally.
+    (setq-local org-drill-cloze-regexp (org-drill--compute-cloze-regexp))
+    (setq-local org-drill-cloze-keywords (org-drill--compute-cloze-keywords))
+    (when org-drill-use-visible-cloze-face-p
+      (font-lock-add-keywords nil       ;'org-mode
+                              org-drill-cloze-keywords
+                              nil))))
 
-(add-hook 'org-mode-hook 'org-drill-add-cloze-fontification)
+;; Can't add to org-mode-hook, because local variables won't have been loaded
+;; yet.
+(add-hook 'hack-local-variables-hook
+          'org-drill-add-cloze-fontification)
 
 (org-drill-add-cloze-fontification)
 
