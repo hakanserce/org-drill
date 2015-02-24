@@ -2,7 +2,7 @@
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.4.5
+;;; Version: 2.4.6
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
 ;;;
@@ -202,6 +202,8 @@ during a drill session."
           '(display "Replaced text"
                     face default
                     window t))
+
+(add-hook 'org-font-lock-set-keywords-hook 'org-drill-add-cloze-fontification)
 
 
 (defvar org-drill-hint-separator "||"
@@ -2517,11 +2519,55 @@ STATUS is one of the following values:
            (sym1 (if (oddp (floor scanned (* 50 meter-width))) ?| ?.))
            (sym2 (if (eql sym1 ?.) ?| ?.)))
       (message "Collecting due drill items:%4d %s%s"
-              collected
-              (make-string (% (ceiling scanned 50) meter-width)
-                           sym2)
-              (make-string (- meter-width (% (ceiling scanned 50) meter-width))
-                           sym1)))))
+               collected
+               (make-string (% (ceiling scanned 50) meter-width)
+                            sym2)
+               (make-string (- meter-width (% (ceiling scanned 50) meter-width))
+                            sym1)))))
+
+
+(defun org-map-drill-entry-function ()
+  (org-drill-progress-message
+   (+ (length *org-drill-new-entries*)
+      (length *org-drill-overdue-entries*)
+      (length *org-drill-young-mature-entries*)
+      (length *org-drill-old-mature-entries*)
+      (length *org-drill-failed-entries*))
+   (incf cnt))
+  (cond
+   ((not (org-drill-entry-p))
+    nil)               ; skip
+   (t
+    (when (and (not warned-about-id-creation)
+               (null (org-id-get)))
+      (message (concat "Creating unique IDs for items "
+                       "(slow, but only happens once)"))
+      (sit-for 0.5)
+      (setq warned-about-id-creation t))
+    (org-id-get-create) ; ensure drill entry has unique ID
+    (destructuring-bind (status due age)
+        (org-drill-entry-status)
+      (case status
+        (:unscheduled
+         (incf *org-drill-dormant-entry-count*))
+        ;; (:tomorrow
+        ;;  (incf *org-drill-dormant-entry-count*)
+        ;;  (incf *org-drill-due-tomorrow-count*))
+        (:future
+         (incf *org-drill-dormant-entry-count*)
+         (if (eq -1 due)
+             (incf *org-drill-due-tomorrow-count*)))
+        (:new
+         (push (point-marker) *org-drill-new-entries*))
+        (:failed
+         (push (point-marker) *org-drill-failed-entries*))
+        (:young
+         (push (point-marker) *org-drill-young-mature-entries*))
+        (:overdue
+         (push (list (point-marker) due age) overdue-data))
+        (:old
+         (push (point-marker) *org-drill-old-mature-entries*))
+        )))))
 
 
 (defun org-drill (&optional scope drill-match resume-p)
@@ -2597,48 +2643,7 @@ work correctly with older versions of org mode. Your org mode version (%s) appea
               (let ((org-trust-scanner-tags t)
                     (warned-about-id-creation nil))
                 (org-map-drill-entries
-                 (lambda ()
-                   (org-drill-progress-message
-                    (+ (length *org-drill-new-entries*)
-                       (length *org-drill-overdue-entries*)
-                       (length *org-drill-young-mature-entries*)
-                       (length *org-drill-old-mature-entries*)
-                       (length *org-drill-failed-entries*))
-                    (incf cnt))
-                   (cond
-                    ((not (org-drill-entry-p))
-                     nil)               ; skip
-                    (t
-                     (when (and (not warned-about-id-creation)
-                                (null (org-id-get)))
-                       (message (concat "Creating unique IDs for items "
-                                        "(slow, but only happens once)"))
-                       (sit-for 0.5)
-                       (setq warned-about-id-creation t))
-                     (org-id-get-create) ; ensure drill entry has unique ID
-                     (destructuring-bind (status due age)
-                         (org-drill-entry-status)
-                       (case status
-                         (:unscheduled
-                          (incf *org-drill-dormant-entry-count*))
-                         ;; (:tomorrow
-                         ;;  (incf *org-drill-dormant-entry-count*)
-                         ;;  (incf *org-drill-due-tomorrow-count*))
-                         (:future
-                          (incf *org-drill-dormant-entry-count*)
-                          (if (eq -1 due)
-                              (incf *org-drill-due-tomorrow-count*)))
-                         (:new
-                          (push (point-marker) *org-drill-new-entries*))
-                         (:failed
-                          (push (point-marker) *org-drill-failed-entries*))
-                         (:young
-                          (push (point-marker) *org-drill-young-mature-entries*))
-                         (:overdue
-                          (push (list (point-marker) due age) overdue-data))
-                         (:old
-                          (push (point-marker) *org-drill-old-mature-entries*))
-                         )))))
+                 'org-map-drill-entry-function
                  scope drill-match)
                 (org-drill-order-overdue-entries overdue-data)
                 (setq *org-drill-overdue-entry-count*
@@ -2794,7 +2799,6 @@ values as `org-drill-scope'."
     (add-to-list 'org-font-lock-extra-keywords
                  (first org-drill-cloze-keywords))))
 
-(add-hook 'org-font-lock-set-keywords-hook 'org-drill-add-cloze-fontification)
 
 ;; Can't add to org-mode-hook, because local variables won't have been loaded
 ;; yet.
