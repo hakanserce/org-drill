@@ -49,6 +49,7 @@
 (require 'org)
 (require 'org-id)
 (require 'org-learn)
+(require 'savehist)
 
 
 (defgroup org-drill nil
@@ -369,16 +370,37 @@ Available choices are:
 
 (defcustom org-drill-optimal-factor-matrix
   nil
-  "DO NOT CHANGE THE VALUE OF THIS VARIABLE.
-
-Persistent matrix of optimal factors, used by the SuperMemo SM5 algorithm.
-The matrix is saved (using the 'customize' facility) at the end of each
-drill session.
-
-Over time, values in the matrix will adapt to the individual user's
-pace of learning."
+  "Obsolete and will be removed in future. The SM5 optimal factor
+matrix data is now stored in the variable
+`org-drill-sm5-optimal-factor-matrix'."
   :group 'org-drill
   :type 'sexp)
+
+
+(defvar org-drill-sm5-optimal-factor-matrix
+  nil
+  "DO NOT CHANGE THE VALUE OF THIS VARIABLE.
+
+Persistent matrix of optimal factors, used by the SuperMemo SM5
+algorithm. The matrix is saved at the end of each drill session.
+
+Over time, values in the matrix will adapt to the individual user's
+pace of learning.")
+
+
+(add-to-list 'savehist-additional-variables
+             'org-drill-sm5-optimal-factor-matrix)
+(unless savehist-mode
+  (savehist-mode 1))
+
+
+(defun org-drill--transfer-optimal-factor-matrix ()
+  (if (and org-drill-optimal-factor-matrix
+           (null org-drill-sm5-optimal-factor-matrix))
+      (setq org-drill-sm5-optimal-factor-matrix
+            org-drill-optimal-factor-matrix)))
+
+(add-hook 'after-init-hook 'org-drill--transfer-optimal-factor-matrix)
 
 
 (defcustom org-drill-sm5-initial-interval
@@ -999,7 +1021,7 @@ Returns a list: (INTERVAL REPEATS EF FAILURES MEAN TOTAL-REPEATS OFMATRIX), wher
       ;; When an item is failed, its interval is reset to 0,
       ;; but its EF is unchanged
       (list -1 1 ef (1+ failures) meanq (1+ total-repeats)
-            org-drill-optimal-factor-matrix)
+            org-drill-sm5-optimal-factor-matrix)
     ;; else:
     (let* ((next-ef (modify-e-factor ef quality))
            (interval
@@ -1023,7 +1045,7 @@ Returns a list: (INTERVAL REPEATS EF FAILURES MEAN TOTAL-REPEATS OFMATRIX), wher
             (1+ n)
             next-ef
             failures meanq (1+ total-repeats)
-            org-drill-optimal-factor-matrix))))
+            org-drill-sm5-optimal-factor-matrix))))
 
 
 ;;; SM5 Algorithm =============================================================
@@ -1045,7 +1067,7 @@ Returns a list: (INTERVAL REPEATS EF FAILURES MEAN TOTAL-REPEATS OFMATRIX), wher
 
 (defun inter-repetition-interval-sm5 (last-interval n ef &optional of-matrix)
   (let ((of (get-optimal-factor-sm5 n ef (or of-matrix
-                                             org-drill-optimal-factor-matrix))))
+                                             org-drill-sm5-optimal-factor-matrix))))
     (if (= 1 n)
         of
       (* of last-interval))))
@@ -1059,7 +1081,7 @@ Returns a list: (INTERVAL REPEATS EF FAILURES MEAN TOTAL-REPEATS OFMATRIX), wher
   (assert (> n 0))
   (assert (and (>= quality 0) (<= quality 5)))
   (unless of-matrix
-    (setq of-matrix org-drill-optimal-factor-matrix))
+    (setq of-matrix org-drill-sm5-optimal-factor-matrix))
   (setq of-matrix (cl-copy-tree of-matrix))
 
   (setq meanq (if meanq
@@ -1225,7 +1247,7 @@ item will be scheduled exactly this many days into the future."
   (let ((delta-days (- (time-to-days (current-time))
                        (time-to-days (or (org-get-scheduled-time (point))
                                          (current-time)))))
-        (ofmatrix org-drill-optimal-factor-matrix)
+        (ofmatrix org-drill-sm5-optimal-factor-matrix)
         ;; Entries can have weights, 1 by default. Intervals are divided by the
         ;; item's weight, so an item with a weight of 2 will have all intervals
         ;; halved, meaning you will end up reviewing it twice as often.
@@ -1264,7 +1286,7 @@ item will be scheduled exactly this many days into the future."
                                    total-repeats meanq ease)
 
         (if (eql 'sm5 org-drill-spaced-repetition-algorithm)
-            (setq org-drill-optimal-factor-matrix new-ofmatrix))
+            (setq org-drill-sm5-optimal-factor-matrix new-ofmatrix))
 
         (cond
          ((= 0 days-ahead)
@@ -1294,7 +1316,7 @@ of QUALITY."
             (sm5 (determine-next-interval-sm5 last-interval repetitions
                                               ease quality failures
                                               meanq total-repeats
-                                              org-drill-optimal-factor-matrix))
+                                              org-drill-sm5-optimal-factor-matrix))
             (sm2 (determine-next-interval-sm2 last-interval repetitions
                                               ease quality failures
                                               meanq total-repeats))
@@ -2704,9 +2726,7 @@ work correctly with older versions of org mode. Your org mode version (%s) appea
 
 
 (defun org-drill-save-optimal-factor-matrix ()
-  (message "Saving optimal factor matrix...")
-  (customize-save-variable 'org-drill-optimal-factor-matrix
-                           org-drill-optimal-factor-matrix))
+  (savehist-autosave))
 
 
 (defun org-drill-cram (&optional scope drill-match)
