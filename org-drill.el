@@ -1,10 +1,10 @@
-;;; -*- coding: utf-8-unix -*-
+;; -*- coding: utf-8-unix -*-
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Copyright (C) 2010-2015  Paul Sexton
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.4.6
+;;; Version: 2.4.7
 ;;; Keywords: flashcards, memory, learning, memorization
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
@@ -252,6 +252,23 @@ the hidden cloze during a test.")
 
 (defvar-local org-drill-cloze-keywords
   (org-drill--compute-cloze-keywords))
+
+
+;; Variables defining what keys can be pressed during drill sessions to quit the
+;; session, edit the item, etc.
+(defvar org-drill--quit-key ?q
+  "If this character is pressed during a drill session, quit the session.")
+(defvar org-drill--edit-key ?e
+  "If this character is pressed during a drill session, suspend the session
+with the cursor at the current item..")
+(defvar org-drill--help-key ??
+  "If this character is pressed during a drill session, show help.")
+(defvar org-drill--skip-key ?s
+  "If this character is pressed during a drill session, skip to the next
+item.")
+(defvar org-drill--tags-key ?t
+  "If this character is pressed during a drill session, edit the tags for
+the current item.")
 
 
 (defcustom org-drill-card-type-alist
@@ -1346,11 +1363,19 @@ of QUALITY."
   "Returns quality rating (0-5), or nil if the user quit."
   (let ((ch nil)
         (input nil)
-        (next-review-dates (org-drill-hypothetical-next-review-dates)))
+        (next-review-dates (org-drill-hypothetical-next-review-dates))
+        (key-prompt (format "(0-5, %c=help, %c=edit, %c=tags, %c=quit)"
+                            org-drill--help-key
+                            org-drill--edit-key
+                            org-drill--tags-key
+                            org-drill--quit-key)))
     (save-excursion
-      (while (not (memq ch '(?q ?e ?0 ?1 ?2 ?3 ?4 ?5)))
+      (while (not (memq ch (list org-drill--quit-key
+                                 org-drill--edit-key
+                                 7          ; C-g
+                                 ?0 ?1 ?2 ?3 ?4 ?5)))
         (setq input (read-key-sequence
-                     (if (eq ch ??)
+                     (if (eq ch org-drill--help-key)
                          (format "0-2 Means you have forgotten the item.
 3-5 Means you have remembered the item.
 
@@ -1361,11 +1386,12 @@ of QUALITY."
 4 - After a little bit of thought you remembered. (+%s days)
 5 - You remembered the item really easily. (+%s days)
 
-How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
+How well did you do? %s"
                                  (round (nth 3 next-review-dates))
                                  (round (nth 4 next-review-dates))
-                                 (round (nth 5 next-review-dates)))
-                       "How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)")))
+                                 (round (nth 5 next-review-dates))
+                                 key-prompt)
+                       (format "How well did you do? %s" key-prompt))))
         (cond
          ((stringp input)
           (setq ch (elt input 0)))
@@ -1382,7 +1408,7 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
           (case (car (elt input 0))
             (wheel-up (ignore-errors (mwheel-scroll (elt input 0))))
             (wheel-down (ignore-errors (mwheel-scroll (elt input 0)))))))
-        (if (eql ch ?t)
+        (if (eql ch org-drill--tags-key)
             (org-set-tags-command))))
     (cond
      ((and (>= ch ?0) (<= ch ?5))
@@ -1413,7 +1439,7 @@ How well did you do? (0-5, ?=help, e=edit, t=tags, q=quit)"
           (org-set-property "DRILL_LAST_REVIEWED"
                             (time-to-inactive-org-timestamp (current-time))))
         quality))
-     ((= ch ?e)
+     ((= ch org-drill--edit-key)
       'edit)
      (t
       nil))))
@@ -1484,8 +1510,12 @@ the current topic."
               (apply 'format
                      (first fmt-and-args)
                      (rest fmt-and-args))
-            (concat "Press key for answer, "
-                    "e=edit, t=tags, s=skip, q=quit."))))
+            (format (concat "Press key for answer, "
+                            "%c=edit, %c=tags, %c=skip, %c=quit.")
+                    org-drill--edit-key
+                    org-drill--tags-key
+                    org-drill--skip-key
+                    org-drill--quit-key))))
     (setq prompt
           (format "%s %s %s %s %s %s"
                   (propertize
@@ -1531,7 +1561,7 @@ You seem to be having a lot of trouble memorising this item.
 Consider reformulating the item to make it easier to remember.\n"
                                   'face '(:foreground "red"))
                       prompt)))
-    (while (memq ch '(nil ?t))
+    (while (memq ch '(nil org-drill--tags-key))
       (setq ch nil)
       (while (not (input-pending-p))
         (let ((elapsed (time-subtract (current-time) item-start-time)))
@@ -1542,12 +1572,12 @@ Consider reformulating the item to make it easier to remember.\n"
           (sit-for 1)))
       (setq input (read-key-sequence nil))
       (if (stringp input) (setq ch (elt input 0)))
-      (if (eql ch ?t)
+      (if (eql ch org-drill--tags-key)
           (org-set-tags-command)))
     (case ch
-      (?q nil)
-      (?e 'edit)
-      (?s 'skip)
+      (org-drill--quit-key nil)
+      (org-drill--edit-key 'edit)
+      (org-drill--skip-key 'skip)
       (otherwise t))))
 
 
