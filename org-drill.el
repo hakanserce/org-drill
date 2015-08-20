@@ -4,7 +4,7 @@
 ;;; Copyright (C) 2010-2015  Paul Sexton
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.4.7
+;;; Version: 2.4.8
 ;;; Keywords: flashcards, memory, learning, memorization
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
@@ -1574,11 +1574,11 @@ Consider reformulating the item to make it easier to remember.\n"
       (if (stringp input) (setq ch (elt input 0)))
       (if (eql ch org-drill--tags-key)
           (org-set-tags-command)))
-    (case ch
-      (org-drill--quit-key nil)
-      (org-drill--edit-key 'edit)
-      (org-drill--skip-key 'skip)
-      (otherwise t))))
+    (cond
+      ((eql ch org-drill--quit-key) nil)
+      ((eql ch org-drill--edit-key) 'edit)
+      ((eql ch org-drill--skip-key) 'skip)
+      (t t))))
 
 
 (defun org-pos-in-regexp (pos regexp &optional nlines)
