@@ -1,10 +1,10 @@
-;; -*- coding: utf-8-unix -*-
+;;; -*- coding: utf-8-unix -*-
 ;;; org-drill.el - Self-testing using spaced repetition
 ;;;
 ;;; Copyright (C) 2010-2015  Paul Sexton
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.4.8
+;;; Version: 2.4.9
 ;;; Keywords: flashcards, memory, learning, memorization
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
@@ -15,7 +15,7 @@
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;;
-;;; This program is distaributed in the hope that it will be useful,
+;;; This program is distributed in the hope that it will be useful,
 ;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;;; GNU General Public License for more details.
@@ -27,14 +27,16 @@
 ;;; Synopsis
 ;;; ========
 ;;;
-;;; Uses the SuperMemo spaced repetition algorithms to conduct interactive
-;;; "drill sessions", where the material to be remembered is presented to the
-;;; student in random order. The student rates his or her recall of each item,
-;;; and this information is used to schedule the item for later revision.
+;;; Within an Org mode outline or outlines, headings and associated content are
+;;; treated as "flashcards". Spaced repetition algorithms are used to conduct
+;;; interactive "drill sessions", where a selection of these flashcards is
+;;; presented to the student in random order. The student rates his or her
+;;; recall of each item, and this information is used to schedule the item for
+;;; later revision.
 ;;;
 ;;; Each drill session can be restricted to topics in the current buffer
 ;;; (default), one or several files, all agenda files, or a subtree. A single
-;;; topic can also be drilled.
+;;; topic can also be tested.
 ;;;
 ;;; Different "card types" can be defined, which present their information to
 ;;; the student in different ways.
@@ -82,6 +84,15 @@ Nil means unlimited."
 Nil means unlimited."
   :group 'org-drill
   :type '(choice integer (const nil)))
+
+
+(defcustom org-drill-item-count-includes-failed-items-p
+  nil
+  "If non-nil, when you fail an item it still counts towards the
+count of items reviewed for the current session. If nil (default),
+only successful items count towards this total."
+  :group 'org-drill
+  :type 'boolean)
 
 
 (defcustom org-drill-failure-quality
@@ -2264,8 +2275,11 @@ maximum duration."
 maximum number of items."
   (and org-drill-maximum-items-per-session
        (not *org-drill-cram-mode*)
-       (>= (length *org-drill-done-entries*)
-           org-drill-maximum-items-per-session)))
+       (>= (if org-drill-item-count-includes-failed-items-p
+              (+ (length *org-drill-done-entries*)
+                 (length *org-drill-again-entries*))
+            (length *org-drill-done-entries*))
+          org-drill-maximum-items-per-session)))
 
 
 (defun org-drill-pop-next-pending-entry ()
