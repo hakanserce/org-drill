@@ -1369,6 +1369,14 @@ of QUALITY."
             intervals))
     (reverse intervals)))
 
+(defun org-drill--read-key-sequence (prompt)
+  "Just like `read-key-sequence' but with input method turned off."
+  (let ((old-input-method current-input-method))
+    (unwind-protect
+        (progn
+          (set-input-method nil)
+          (read-key-sequence prompt))
+      (set-input-method old-input-method))))
 
 (defun org-drill-reschedule ()
   "Returns quality rating (0-5), or nil if the user quit."
@@ -1385,7 +1393,7 @@ of QUALITY."
                                  org-drill--edit-key
                                  7          ; C-g
                                  ?0 ?1 ?2 ?3 ?4 ?5)))
-        (setq input (read-key-sequence
+        (setq input (org-drill--read-key-sequence
                      (if (eq ch org-drill--help-key)
                          (format "0-2 Means you have forgotten the item.
 3-5 Means you have remembered the item.
@@ -1581,7 +1589,7 @@ Consider reformulating the item to make it easier to remember.\n"
                              (format-time-string "%M:%S " elapsed))
                            prompt))
           (sit-for 1)))
-      (setq input (read-key-sequence nil))
+      (setq input (org-drill--read-key-sequence nil))
       (if (stringp input) (setq ch (elt input 0)))
       (if (eql ch org-drill--tags-key)
           (org-set-tags-command)))
