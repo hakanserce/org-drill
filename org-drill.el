@@ -4,7 +4,7 @@
 ;;; Copyright (C) 2010-2015  Paul Sexton
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.4.10
+;;; Version: 2.5
 ;;; Keywords: flashcards, memory, learning, memorization
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
@@ -552,6 +552,15 @@ behaviour of revealing the contents of the drilled item.
 This variable is useful for card types that compute their answers
 -- for example, a card type that asks the student to translate a
 random number to another language. ")
+
+
+(defcustom org-drill-cloze-length-matches-hidden-text-p
+  nil
+  "If non-nil, when concealing cloze deletions, force the length of
+the ellipsis to match the length of the missing text. This may be useful
+to preserve the formatting in a displayed table, for example."
+  :group 'org-drill
+  :type 'boolean)
 
 
 (defvar *org-drill-session-qualities* nil)
@@ -1515,8 +1524,26 @@ the current topic."
            (not (member drill-heading heading-list))))))
 
 
-(defun org-drill-presentation-prompt (&rest fmt-and-args)
-  (let* ((item-start-time (current-time))
+(cl-defun org-drill-presentation-prompt (&key prompt
+                                              returns
+                                              (start-time (current-time)))
+  "Create a card prompt with a timer and user-specified menu.
+
+Arguments:
+
+PROMPT: A string that overrides the standard prompt.
+
+RETURNS: An alist of the form ((<char> . <symbol>)...) where
+         <char> is the character pressed and <symbol> is the
+         returned value, which will normally be either a symbol,
+         `t' or `nil'.
+
+START-TIME: The time the card started to be displayed.  This
+            defaults to (current-time), however, if the function
+            is called multiple times from one card then it might
+            be convenient to override this default.
+"
+  (let* ((item-start-time start-time)
          (input nil)
          (ch nil)
          (last-second 0)
@@ -1525,17 +1552,14 @@ the current topic."
                                 (length *org-drill-overdue-entries*)))
          (status (first (org-drill-entry-status)))
          (prompt
-          (if fmt-and-args
-              (apply 'format
-                     (first fmt-and-args)
-                     (rest fmt-and-args))
-            (format (concat "Press key for answer, "
-                            "%c=edit, %c=tags, %c=skip, %c=quit.")
-                    org-drill--edit-key
-                    org-drill--tags-key
-                    org-drill--skip-key
-                    org-drill--quit-key))))
-    (setq prompt
+          (or prompt
+              (format (concat "Press key for answer, "
+                              "%c=edit, %c=tags, %c=skip, %c=quit.")
+                      org-drill--edit-key
+                      org-drill--tags-key
+                      org-drill--skip-key
+                      org-drill--quit-key)))
+         (full-prompt
           (format "%s %s %s %s %s %s"
                   (propertize
                    (char-to-string
@@ -1571,15 +1595,15 @@ the current topic."
                    'face `(:foreground ,org-drill-new-count-color)
                    'help-echo (concat "The number of new items that you "
                                       "have never reviewed."))
-                  prompt))
+                  prompt)))
     (if (and (eql 'warn org-drill-leech-method)
              (org-drill-entry-leech-p))
-        (setq prompt (concat
-                      (propertize "!!! LEECH ITEM !!!
+        (setq full-prompt (concat
+                           (propertize "!!! LEECH ITEM !!!
 You seem to be having a lot of trouble memorising this item.
 Consider reformulating the item to make it easier to remember.\n"
-                                  'face '(:foreground "red"))
-                      prompt)))
+                                       'face '(:foreground "red"))
+                           full-prompt)))
     (while (memq ch '(nil org-drill--tags-key))
       (setq ch nil)
       (while (not (input-pending-p))
@@ -1587,17 +1611,19 @@ Consider reformulating the item to make it easier to remember.\n"
           (message (concat (if (>= (time-to-seconds elapsed) (* 60 60))
                                "++:++ "
                              (format-time-string "%M:%S " elapsed))
-                           prompt))
+                           full-prompt))
           (sit-for 1)))
       (setq input (org-drill--read-key-sequence nil))
       (if (stringp input) (setq ch (elt input 0)))
       (if (eql ch org-drill--tags-key)
           (org-set-tags-command)))
-    (cond
-      ((eql ch org-drill--quit-key) nil)
-      ((eql ch org-drill--edit-key) 'edit)
-      ((eql ch org-drill--skip-key) 'skip)
-      (t t))))
+    (if returns
+        (or (cdr (assoc ch returns)))
+      (cond
+       ((eql ch org-drill--quit-key) nil)
+       ((eql ch org-drill--edit-key) 'edit)
+       ((eql ch org-drill--skip-key) 'skip)
+       (t t)))))
 
 
 (defun org-pos-in-regexp (pos regexp &optional nlines)
@@ -1666,6 +1692,9 @@ visual overlay, or with the string TEXT if it is supplied."
     (overlay-put ovl 'category
                  'org-drill-cloze-overlay-defaults)
     (overlay-put ovl 'priority 9999)
+    (if org-drill-cloze-length-matches-hidden-text-p
+        (overlay-put ovl 'display
+                     (concat "[" (make-string (max 1 (- (length (match-string 0)) 2)) ?.) "]")))
     (when (and hint-sep-pos
                (> hint-sep-pos 1))
       (let ((hint (substring-no-properties
@@ -1676,8 +1705,16 @@ visual overlay, or with the string TEXT if it is supplied."
          ovl 'display
          ;; If hint is like `X...' then display [X...]
          ;; otherwise display [...X]
-         (format (if (string-match-p (regexp-quote "...") hint) "[%s]" "[%s...]")
-                 hint))))))
+         (format "[%s%s%s]"
+                 hint
+                 (if (string-match-p (regexp-quote "...") hint) "" "...")
+                 (if org-drill-cloze-length-matches-hidden-text-p
+                     (make-string (max 0 (- (length (match-string 0))
+                                            (length hint)
+                                            (if (string-match-p (regexp-quote "...") hint) 0 3)
+                                            2))
+                                  ?.)
+                   "")))))))
 
 
 (defun org-drill-hide-cloze-hints ()
