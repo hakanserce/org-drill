@@ -284,6 +284,7 @@ the current item.")
 (defcustom org-drill-card-type-alist
   '((nil org-drill-present-simple-card)
     ("simple" org-drill-present-simple-card)
+    ("simpletyped" org-drill-present-simple-card-with-typed-answer)
     ("twosided" org-drill-present-two-sided-card nil t)
     ("multisided" org-drill-present-multi-sided-card nil t)
     ("hide1cloze" org-drill-present-multicloze-hide1)
@@ -551,6 +552,13 @@ behaviour of revealing the contents of the drilled item.
 This variable is useful for card types that compute their answers
 -- for example, a card type that asks the student to translate a
 random number to another language. ")
+
+
+(defvar drill-typed-answer nil
+  "Global variable that can be bound to the last answer typed by
+the user. Used by card types that ask the user to type in an
+answer, rather than just pressing spacebar to reveal the
+answer.")
 
 
 (defcustom org-drill-cloze-length-matches-hidden-text-p
@@ -1391,6 +1399,10 @@ of QUALITY."
   (let ((ch nil)
         (input nil)
         (next-review-dates (org-drill-hypothetical-next-review-dates))
+        (typed-answer-statement (if drill-typed-answer
+                                    (format "Your answer: %s\n"
+                                            drill-typed-answer)
+                                  ""))
         (key-prompt (format "(0-5, %c=help, %c=edit, %c=tags, %c=quit)"
                             org-drill--help-key
                             org-drill--edit-key
@@ -1413,12 +1425,14 @@ of QUALITY."
 4 - After a little bit of thought you remembered. (+%s days)
 5 - You remembered the item really easily. (+%s days)
 
-How well did you do? %s"
+%sHow well did you do? %s"
                                  (round (nth 3 next-review-dates))
                                  (round (nth 4 next-review-dates))
                                  (round (nth 5 next-review-dates))
+                                 typed-answer-statement
                                  key-prompt)
-                       (format "How well did you do? %s" key-prompt))))
+                       (format "%sHow well did you do? %s"
+                               typed-answer-statement key-prompt))))
         (cond
          ((stringp input)
           (setq ch (elt input 0)))
@@ -1523,6 +1537,49 @@ the current topic."
            (not (member drill-heading heading-list))))))
 
 
+(defun org-drill--make-minibuffer-prompt (prompt)
+  (let ((status (first (org-drill-entry-status)))
+        (mature-entry-count (+ (length *org-drill-young-mature-entries*)
+                               (length *org-drill-old-mature-entries*)
+                               (length *org-drill-overdue-entries*))))
+    (format "%s %s %s %s %s %s"
+            (propertize
+             (char-to-string
+              (cond
+               ((eql status :failed) ?F)
+               (*org-drill-cram-mode* ?C)
+               (t
+                (case status
+                  (:new ?N) (:young ?Y) (:old ?o) (:overdue ?!)
+                  (t ??)))))
+             'face `(:foreground
+                     ,(case status
+                        (:new org-drill-new-count-color)
+                        ((:young :old) org-drill-mature-count-color)
+                        ((:overdue :failed) org-drill-failed-count-color)
+                        (t org-drill-done-count-color))))
+            (propertize
+             (number-to-string (length *org-drill-done-entries*))
+             'face `(:foreground ,org-drill-done-count-color)
+             'help-echo "The number of items you have reviewed this session.")
+            (propertize
+             (number-to-string (+ (length *org-drill-again-entries*)
+                                  (length *org-drill-failed-entries*)))
+             'face `(:foreground ,org-drill-failed-count-color)
+             'help-echo (concat "The number of items that you failed, "
+                                "and need to review again."))
+            (propertize
+             (number-to-string mature-entry-count)
+             'face `(:foreground ,org-drill-mature-count-color)
+             'help-echo "The number of old items due for review.")
+            (propertize
+             (number-to-string (length *org-drill-new-entries*))
+             'face `(:foreground ,org-drill-new-count-color)
+             'help-echo (concat "The number of new items that you "
+                                "have never reviewed."))
+            prompt)))
+
+
 (cl-defun org-drill-presentation-prompt (&key prompt
                                               returns
                                               (start-time (current-time)))
@@ -1546,10 +1603,6 @@ START-TIME: The time the card started to be displayed.  This
          (input nil)
          (ch nil)
          (last-second 0)
-         (mature-entry-count (+ (length *org-drill-young-mature-entries*)
-                                (length *org-drill-old-mature-entries*)
-                                (length *org-drill-overdue-entries*)))
-         (status (first (org-drill-entry-status)))
          (prompt
           (or prompt
               (format (concat "Press key for answer, "
@@ -1559,42 +1612,7 @@ START-TIME: The time the card started to be displayed.  This
                       org-drill--skip-key
                       org-drill--quit-key)))
          (full-prompt
-          (format "%s %s %s %s %s %s"
-                  (propertize
-                   (char-to-string
-                    (cond
-                     ((eql status :failed) ?F)
-                     (*org-drill-cram-mode* ?C)
-                     (t
-                      (case status
-                        (:new ?N) (:young ?Y) (:old ?o) (:overdue ?!)
-                        (t ??)))))
-                   'face `(:foreground
-                           ,(case status
-                              (:new org-drill-new-count-color)
-                              ((:young :old) org-drill-mature-count-color)
-                              ((:overdue :failed) org-drill-failed-count-color)
-                              (t org-drill-done-count-color))))
-                  (propertize
-                   (number-to-string (length *org-drill-done-entries*))
-                   'face `(:foreground ,org-drill-done-count-color)
-                   'help-echo "The number of items you have reviewed this session.")
-                  (propertize
-                   (number-to-string (+ (length *org-drill-again-entries*)
-                                        (length *org-drill-failed-entries*)))
-                   'face `(:foreground ,org-drill-failed-count-color)
-                   'help-echo (concat "The number of items that you failed, "
-                                      "and need to review again."))
-                  (propertize
-                   (number-to-string mature-entry-count)
-                   'face `(:foreground ,org-drill-mature-count-color)
-                   'help-echo "The number of old items due for review.")
-                  (propertize
-                   (number-to-string (length *org-drill-new-entries*))
-                   'face `(:foreground ,org-drill-new-count-color)
-                   'help-echo (concat "The number of new items that you "
-                                      "have never reviewed."))
-                  prompt)))
+          (org-drill--make-minibuffer-prompt prompt)))
     (if (and (eql 'warn org-drill-leech-method)
              (org-drill-entry-leech-p))
         (setq full-prompt (concat
@@ -1623,6 +1641,34 @@ Consider reformulating the item to make it easier to remember.\n"
        ((eql ch org-drill--edit-key) 'edit)
        ((eql ch org-drill--skip-key) 'skip)
        (t t)))))
+
+
+(cl-defun org-drill-presentation-prompt-for-string (prompt)
+  "Create a card prompt with a timer and user-specified menu.
+
+Arguments:
+
+PROMPT: A string that overrides the standard prompt.
+
+START-TIME: The time the card started to be displayed.  This
+            defaults to (current-time), however, if the function
+            is called multiple times from one card then it might
+            be convenient to override this default.
+"
+  (let* ((prompt
+          (or prompt
+              "Type your answer and press <Enter>: "))
+         (full-prompt
+          (org-drill--make-minibuffer-prompt prompt)))
+    (if (and (eql 'warn org-drill-leech-method)
+             (org-drill-entry-leech-p))
+        (setq full-prompt (concat
+                           (propertize "!!! LEECH ITEM !!!
+You seem to be having a lot of trouble memorising this item.
+Consider reformulating the item to make it easier to remember.\n"
+                                       'face '(:foreground "red"))
+                           full-prompt)))
+    (setq drill-typed-answer (read-string full-prompt nil nil nil t))))
 
 
 (defun org-pos-in-regexp (pos regexp &optional nlines)
@@ -1873,22 +1919,36 @@ Note: does not actually alter the item."
 
 
 (defun org-drill-present-default-answer (reschedule-fn)
-  (cond
-   (drill-answer
-    (with-replaced-entry-text
-     (format "\nAnswer:\n\n  %s\n" drill-answer)
-     (prog1
-         (funcall reschedule-fn)
-       (setq drill-answer nil))))
-   (t
-    (org-drill-hide-subheadings-if 'org-drill-entry-p)
-    (org-drill-unhide-clozed-text)
-    (org-drill--show-latex-fragments)
-    (ignore-errors
-      (org-display-inline-images t))
-    (org-cycle-hide-drawers 'all)
-    (with-hidden-cloze-hints
-     (funcall reschedule-fn)))))
+  (prog1 (cond
+          (drill-answer
+           (with-replaced-entry-text
+            (format "\nAnswer:\n\n  %s\n" drill-answer)
+            (funcall reschedule-fn)
+            ))
+          (t
+           (org-drill-hide-subheadings-if 'org-drill-entry-p)
+           (org-drill-unhide-clozed-text)
+           (org-drill--show-latex-fragments)
+           (ignore-errors
+             (org-display-inline-images t))
+           (org-cycle-hide-drawers 'all)
+           (with-hidden-cloze-hints
+            (funcall reschedule-fn))))
+    (setq drill-answer nil
+          drill-typed-answer nil)))
+
+
+(defun org-drill-present-simple-card-with-typed-answer ()
+  (with-hidden-comments
+   (with-hidden-cloze-hints
+    (with-hidden-cloze-text
+     (org-drill-hide-all-subheadings-except nil)
+     (org-drill--show-latex-fragments)  ; overlay all LaTeX fragments with images
+     (ignore-errors
+       (org-display-inline-images t))
+     (org-cycle-hide-drawers 'all)
+     (prog1 (org-drill-presentation-prompt-for-string nil)
+       (org-drill-hide-subheadings-if 'org-drill-entry-p))))))
 
 
 (defun org-drill--show-latex-fragments ()
