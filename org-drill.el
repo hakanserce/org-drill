@@ -4,7 +4,7 @@
 ;;; Copyright (C) 2010-2015  Paul Sexton
 ;;;
 ;;; Author: Paul Sexton <eeeickythump@gmail.com>
-;;; Version: 2.6
+;;; Version: 2.6.1
 ;;; Keywords: flashcards, memory, learning, memorization
 ;;; Repository at http://bitbucket.org/eeeickythump/org-drill/
 ;;;
@@ -50,6 +50,7 @@
 (require 'hi-lock)
 (require 'org)
 (require 'org-id)
+(require 'org-learn)
 (require 'savehist)
 
 
