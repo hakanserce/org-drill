@@ -1060,6 +1060,12 @@ Returns a list: (INTERVAL REPEATS EF FAILURES MEAN TOTAL-REPEATS OFMATRIX), wher
 - REPEATS is incremented by 1.
 - EF is modified based on the recall quality for the item.
 - OF-MATRIX is not modified."
+  (if (zerop n) (setq n 1))
+  (if (null ef) (setq ef 2.5))
+  (setq meanq (if meanq
+                  (/ (+ quality (* meanq total-repeats 1.0))
+                     (1+ total-repeats))
+                quality))
   (assert (> n 0))
   (assert (and (>= quality 0) (<= quality 5)))
   (if (<= quality org-drill-failure-quality)
@@ -2455,7 +2461,10 @@ RESUMING-P is true if we are resuming a suspended drill session."
           (error "Unexpectedly ran out of pending drill items"))
         (save-excursion
           (org-drill-goto-entry m)
+          (message "[debug] org-drill: at marker position %s" (marker-position m))
           (cond
+           ((not (org-at-heading-p))
+            (error "Not at heading for entry %s" m))
            ((not (org-drill-entry-due-p))
             ;; The entry is not due anymore. This could arise if the user
             ;; suspends a drill session, then drills an individual entry,
@@ -2464,6 +2473,7 @@ RESUMING-P is true if we are resuming a suspended drill session."
             (sit-for 0.3)
             nil)
            (t
+            (org-show-entry)
             (setq result (org-drill-entry))
             (cond
              ((null result)
