@@ -1534,7 +1534,7 @@ the current topic."
                         (funcall test))
              (hide-subtree))
            (push (point) drill-sections)))
-       "" 'tree))
+       nil 'tree))
     (reverse drill-sections)))
 
 
